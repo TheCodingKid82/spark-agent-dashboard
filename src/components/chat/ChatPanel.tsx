@@ -96,7 +96,13 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
       if (viewMode === 'observer') {
         url += 'all=true&limit=200';
       } else if (selectedConv) {
-        const parts = selectedConv.replace('dm-', '').split('-');
+        // Handle both formats: "dm-andrew-atlas" and "andrew:atlas"
+        let parts: string[];
+        if (selectedConv.startsWith('dm-')) {
+          parts = selectedConv.replace('dm-', '').split('-');
+        } else {
+          parts = selectedConv.split(':');
+        }
         if (parts.length >= 2) {
           url += `participant1=${parts[0]}&participant2=${parts[1]}&limit=100`;
         } else {
@@ -122,7 +128,13 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
     if (!newMessage.trim() || !selectedConv) return;
     
     // Extract recipient from conversation ID
-    const parts = selectedConv.replace('dm-', '').split('-');
+    // Handle both formats: "dm-andrew-atlas" and "andrew:atlas"
+    let parts: string[];
+    if (selectedConv.startsWith('dm-')) {
+      parts = selectedConv.replace('dm-', '').split('-');
+    } else {
+      parts = selectedConv.split(':');
+    }
     const recipient = parts.find(p => p !== currentUserId);
     if (!recipient) return;
 
@@ -206,7 +218,10 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   if (!isOpen) return null;
 
   const selectedRecipient = selectedConv
-    ? selectedConv.replace('dm-', '').split('-').find(p => p !== currentUserId)
+    ? (selectedConv.startsWith('dm-')
+        ? selectedConv.replace('dm-', '').split('-')
+        : selectedConv.split(':')
+      ).find(p => p !== currentUserId)
     : null;
 
   return (
