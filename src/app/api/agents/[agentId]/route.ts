@@ -29,7 +29,7 @@ export async function GET(
   }
 
   // Health check
-  let health = { healthy: false, error: 'Not deployed' };
+  let health: { healthy: boolean; status?: string; error?: string } = { healthy: false, error: 'Not deployed' };
   if (record.gatewayUrl && record.gatewayToken) {
     health = await checkAgentHealth(record.gatewayUrl, record.gatewayToken);
   }
