@@ -207,8 +207,7 @@ export async function provisionFullStack(
 
     const domain = domainData.serviceDomainCreate.domain;
 
-    // Step 5: NOW set the source repo + start command (this triggers the build)
-    // All env vars are already configured, so the build will have ANTHROPIC_AUTH_TOKEN
+    // Step 5: Set start command
     await railwayQuery(`
       mutation($serviceId: String!, $input: ServiceInstanceUpdateInput!) {
         serviceInstanceUpdate(serviceId: $serviceId, input: $input)
@@ -216,8 +215,20 @@ export async function provisionFullStack(
     `, {
       serviceId,
       input: {
-        source: { repo: config.sourceRepo },
         startCommand: config.startCommand,
+      },
+    });
+
+    // Step 6: Connect the GitHub repo (this triggers the build)
+    // All env vars are already configured, so the build will have ANTHROPIC_AUTH_TOKEN
+    await railwayQuery(`
+      mutation($id: String!, $input: ServiceConnectInput!) {
+        serviceConnect(id: $id, input: $input) { id }
+      }
+    `, {
+      id: serviceId,
+      input: {
+        repo: config.sourceRepo,
       },
     });
 
