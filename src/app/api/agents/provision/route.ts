@@ -4,7 +4,7 @@ import { createEmailAccount } from '@/lib/provisioning/email';
 import { createWhopAccount } from '@/lib/provisioning/whop';
 import { upsertRecord } from '@/lib/provisioning/store';
 import { generateWorkspaceFiles, generateAgentDirectoryMd } from '@/lib/provisioning/workspace-generator';
-import { generateGatewayConfig, pushGatewayConfig, pushWorkspaceFiles, sendAgentMessage, checkAgentHealth } from '@/lib/provisioning/gateway-config';
+import { pushGatewayConfig, pushWorkspaceFiles, sendAgentMessage, checkAgentHealth } from '@/lib/provisioning/gateway-config';
 import type { ProvisioningRecord } from '@/lib/provisioning/store';
 import { getAllRecords } from '@/lib/provisioning/store';
 
@@ -226,7 +226,7 @@ export async function POST(request: Request) {
           .filter(a => a.railwayServiceId)
           .map(a => ({
             name: a.agentName,
-            role: (a as Record<string, unknown>).agentRole as string || 'Agent',
+            role: (a as unknown as Record<string, unknown>).agentRole as string || 'Agent',
             domain: a.domain,
             status: a.railwayDeploymentStatus || 'unknown',
           }))
