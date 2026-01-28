@@ -31,12 +31,12 @@ function getConfig() {
   // Start command that:
   // 1. Creates ~/.claude and ~/.clawdbot directories
   // 2. Writes Claude credentials.json with the setup token
-  // 3. Writes Clawdbot config to mark setup as complete
+  // 3. Writes Clawdbot config with trustedProxies for Railway
   // 4. Starts the Clawdbot gateway
   const defaultStartCommand = `sh -c '
     mkdir -p ~/.claude ~/.clawdbot &&
     echo "{\"claudeAiOauth\":{\"accessToken\":\"$ANTHROPIC_AUTH_TOKEN\",\"expiresAt\":9999999999999}}" > ~/.claude/.credentials.json &&
-    echo "{\"gateway\":{\"mode\":\"local\",\"auth\":{\"mode\":\"token\",\"token\":\"$CLAWDBOT_GATEWAY_TOKEN\"}},\"agents\":{\"defaults\":{\"workspace\":\"/data/workspace\"}},\"wizard\":{\"lastRunAt\":\"2026-01-01T00:00:00.000Z\",\"lastRunCommand\":\"provision\"}}" > ~/.clawdbot/clawdbot.json &&
+    echo "{\"gateway\":{\"mode\":\"local\",\"trustedProxies\":[\"100.64.0.0/10\",\"10.0.0.0/8\",\"172.16.0.0/12\",\"192.168.0.0/16\"],\"auth\":{\"mode\":\"token\",\"token\":\"$CLAWDBOT_GATEWAY_TOKEN\"}},\"agents\":{\"defaults\":{\"workspace\":\"/data/workspace\"}},\"wizard\":{\"lastRunAt\":\"2026-01-01T00:00:00.000Z\",\"lastRunCommand\":\"provision\"}}" > ~/.clawdbot/clawdbot.json &&
     node dist/index.js gateway --port 8080 --bind lan
   '`;
   
