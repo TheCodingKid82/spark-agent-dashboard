@@ -1,0 +1,160 @@
+{
+  "agents": [
+    {
+      "id": "andrew",
+      "name": "Andrew",
+      "role": "Founder & CEO",
+      "emoji": "👑",
+      "status": "online",
+      "purpose": "Vision, strategy, and final decisions. The human behind Spark Studio.",
+      "specialties": ["Strategy", "Product Vision", "Leadership", "Revenue"],
+      "parentId": null,
+      "recentActivity": [
+        { "timestamp": "2025-01-15T10:30:00Z", "action": "Set Q1 revenue target to $100k MRR" },
+        { "timestamp": "2025-01-15T09:00:00Z", "action": "Reviewed conversion optimization plan" },
+        { "timestamp": "2025-01-14T18:00:00Z", "action": "Approved Insider Expeditions launch strategy" }
+      ],
+      "communications": [
+        { "from": "andrew", "to": "henry", "message": "Focus on conversion optimization this week", "timestamp": "2025-01-15T10:00:00Z" },
+        { "from": "andrew", "to": "arthur", "message": "Set up X outreach automation pipeline", "timestamp": "2025-01-15T09:30:00Z" }
+      ],
+      "metrics": {
+        "tasksCompleted": 42,
+        "uptime": "100%",
+        "lastActive": "2025-01-15T10:30:00Z"
+      }
+    },
+    {
+      "id": "henry",
+      "name": "Henry",
+      "role": "COO / Executive Assistant",
+      "emoji": "🎯",
+      "status": "online",
+      "purpose": "Operations command center. Manages Announcements app, conversion optimization, payments, and Insider Expeditions coordination.",
+      "specialties": ["Operations", "Announcements App", "Conversion Optimization", "Payments", "Insider Expeditions"],
+      "parentId": "andrew",
+      "recentActivity": [
+        { "timestamp": "2025-01-15T10:15:00Z", "action": "Analyzed paywall modal drop-off rates — 95% at 2s" },
+        { "timestamp": "2025-01-15T09:45:00Z", "action": "Updated conversion optimization plan V2" },
+        { "timestamp": "2025-01-15T08:30:00Z", "action": "Processed 12 new payment resolutions" },
+        { "timestamp": "2025-01-14T16:00:00Z", "action": "Coordinated Insider Expeditions trip logistics" }
+      ],
+      "communications": [
+        { "from": "andrew", "to": "henry", "message": "Focus on conversion optimization this week", "timestamp": "2025-01-15T10:00:00Z" },
+        { "from": "henry", "to": "andrew", "message": "Modal redesign ready for review — projected 3x improvement", "timestamp": "2025-01-15T10:15:00Z" },
+        { "from": "henry", "to": "arthur", "message": "Need funnel data for conversion analysis", "timestamp": "2025-01-15T09:00:00Z" }
+      ],
+      "metrics": {
+        "tasksCompleted": 156,
+        "uptime": "99.7%",
+        "lastActive": "2025-01-15T10:15:00Z"
+      }
+    },
+    {
+      "id": "arthur",
+      "name": "Arthur",
+      "role": "Executive Assistant",
+      "emoji": "⚡",
+      "status": "busy",
+      "purpose": "Automation powerhouse. Handles browser automation, X/Twitter outreach, funnels app management, and memory/context management.",
+      "specialties": ["Browser Automation", "X Outreach", "Funnels App", "Memory Management", "Web Scraping"],
+      "parentId": "andrew",
+      "recentActivity": [
+        { "timestamp": "2025-01-15T10:20:00Z", "action": "Running automated X outreach campaign — 47 DMs sent" },
+        { "timestamp": "2025-01-15T09:15:00Z", "action": "Updated funnel landing page A/B test" },
+        { "timestamp": "2025-01-15T08:00:00Z", "action": "Synced memory context across all sessions" },
+        { "timestamp": "2025-01-14T22:00:00Z", "action": "Scraped competitor pricing data" }
+      ],
+      "communications": [
+        { "from": "andrew", "to": "arthur", "message": "Set up X outreach automation pipeline", "timestamp": "2025-01-15T09:30:00Z" },
+        { "from": "arthur", "to": "andrew", "message": "Pipeline active — targeting 100 DMs/day", "timestamp": "2025-01-15T10:20:00Z" },
+        { "from": "henry", "to": "arthur", "message": "Need funnel data for conversion analysis", "timestamp": "2025-01-15T09:00:00Z" },
+        { "from": "arthur", "to": "henry", "message": "Funnel data exported — 2.3% current conversion rate", "timestamp": "2025-01-15T09:10:00Z" }
+      ],
+      "metrics": {
+        "tasksCompleted": 203,
+        "uptime": "98.5%",
+        "lastActive": "2025-01-15T10:20:00Z"
+      }
+    },
+    {
+      "id": "nova",
+      "name": "Nova",
+      "role": "Data Analyst",
+      "emoji": "📊",
+      "status": "online",
+      "purpose": "Crunches numbers, tracks KPIs, generates reports. The analytics brain of Spark Studio.",
+      "specialties": ["Analytics", "KPI Tracking", "Reporting", "Data Visualization", "Forecasting"],
+      "parentId": "henry",
+      "recentActivity": [
+        { "timestamp": "2025-01-15T10:00:00Z", "action": "Generated weekly MRR report — $12.4k current" },
+        { "timestamp": "2025-01-15T07:00:00Z", "action": "Updated churn prediction model" },
+        { "timestamp": "2025-01-14T20:00:00Z", "action": "Analyzed user engagement patterns" }
+      ],
+      "communications": [
+        { "from": "henry", "to": "nova", "message": "Pull conversion funnel metrics for last 30 days", "timestamp": "2025-01-15T09:30:00Z" },
+        { "from": "nova", "to": "henry", "message": "Report ready: 2.3% → 3.1% conversion trend", "timestamp": "2025-01-15T10:00:00Z" }
+      ],
+      "metrics": {
+        "tasksCompleted": 89,
+        "uptime": "99.9%",
+        "lastActive": "2025-01-15T10:00:00Z"
+      }
+    },
+    {
+      "id": "sentinel",
+      "name": "Sentinel",
+      "role": "Security & Compliance",
+      "emoji": "🛡️",
+      "status": "online",
+      "purpose": "Monitors security, handles compliance, watches for threats and anomalies.",
+      "specialties": ["Security Monitoring", "Compliance", "Threat Detection", "Access Control"],
+      "parentId": "henry",
+      "recentActivity": [
+        { "timestamp": "2025-01-15T10:05:00Z", "action": "All systems green — no threats detected" },
+        { "timestamp": "2025-01-15T06:00:00Z", "action": "Completed daily security audit" },
+        { "timestamp": "2025-01-14T15:00:00Z", "action": "Updated API key rotation schedule" }
+      ],
+      "communications": [
+        { "from": "sentinel", "to": "henry", "message": "Security audit complete — all clear", "timestamp": "2025-01-15T10:05:00Z" }
+      ],
+      "metrics": {
+        "tasksCompleted": 67,
+        "uptime": "99.99%",
+        "lastActive": "2025-01-15T10:05:00Z"
+      }
+    },
+    {
+      "id": "pixel",
+      "name": "Pixel",
+      "role": "Creative & Design",
+      "emoji": "🎨",
+      "status": "offline",
+      "purpose": "Handles design tasks, UI/UX improvements, brand assets, and creative content.",
+      "specialties": ["UI/UX Design", "Brand Design", "Creative Content", "Visual Assets"],
+      "parentId": "arthur",
+      "recentActivity": [
+        { "timestamp": "2025-01-14T18:00:00Z", "action": "Redesigned paywall modal mockup" },
+        { "timestamp": "2025-01-14T14:00:00Z", "action": "Created social media assets for X campaign" },
+        { "timestamp": "2025-01-13T20:00:00Z", "action": "Updated brand guidelines document" }
+      ],
+      "communications": [
+        { "from": "arthur", "to": "pixel", "message": "Need new social assets for outreach campaign", "timestamp": "2025-01-14T12:00:00Z" },
+        { "from": "pixel", "to": "arthur", "message": "Assets ready — 12 variants uploaded", "timestamp": "2025-01-14T18:00:00Z" }
+      ],
+      "metrics": {
+        "tasksCompleted": 34,
+        "uptime": "85%",
+        "lastActive": "2025-01-14T18:00:00Z"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-andrew-henry", "source": "andrew", "target": "henry", "animated": true },
+    { "id": "e-andrew-arthur", "source": "andrew", "target": "arthur", "animated": true },
+    { "id": "e-henry-nova", "source": "henry", "target": "nova", "animated": false },
+    { "id": "e-henry-sentinel", "source": "henry", "target": "sentinel", "animated": false },
+    { "id": "e-arthur-pixel", "source": "arthur", "target": "pixel", "animated": false },
+    { "id": "e-henry-arthur", "source": "henry", "target": "arthur", "animated": true, "label": "Data Sync" }
+  ]
+}

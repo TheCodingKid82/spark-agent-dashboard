@@ -1,0 +1,156 @@
+{
+  "chats": [
+    {
+      "id": "team-hq",
+      "name": "Team HQ",
+      "type": "team",
+      "members": ["andrew", "henry", "arthur", "nova", "sentinel", "pixel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": "2025-01-15T08:35:00Z"
+    },
+    {
+      "id": "dm-andrew-henry",
+      "name": "",
+      "type": "dm",
+      "members": ["andrew", "henry"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-andrew-arthur",
+      "name": "",
+      "type": "dm",
+      "members": ["andrew", "arthur"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-andrew-nova",
+      "name": "",
+      "type": "dm",
+      "members": ["andrew", "nova"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-andrew-sentinel",
+      "name": "",
+      "type": "dm",
+      "members": ["andrew", "sentinel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-andrew-pixel",
+      "name": "",
+      "type": "dm",
+      "members": ["andrew", "pixel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-henry-arthur",
+      "name": "",
+      "type": "dm",
+      "members": ["henry", "arthur"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-henry-nova",
+      "name": "",
+      "type": "dm",
+      "members": ["henry", "nova"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-henry-sentinel",
+      "name": "",
+      "type": "dm",
+      "members": ["henry", "sentinel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-henry-pixel",
+      "name": "",
+      "type": "dm",
+      "members": ["henry", "pixel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-arthur-nova",
+      "name": "",
+      "type": "dm",
+      "members": ["arthur", "nova"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-arthur-sentinel",
+      "name": "",
+      "type": "dm",
+      "members": ["arthur", "sentinel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-arthur-pixel",
+      "name": "",
+      "type": "dm",
+      "members": ["arthur", "pixel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-nova-sentinel",
+      "name": "",
+      "type": "dm",
+      "members": ["nova", "sentinel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-nova-pixel",
+      "name": "",
+      "type": "dm",
+      "members": ["nova", "pixel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    },
+    {
+      "id": "dm-sentinel-pixel",
+      "name": "",
+      "type": "dm",
+      "members": ["sentinel", "pixel"],
+      "createdAt": "2025-01-15T08:00:00Z",
+      "lastMessageAt": null
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-1",
+      "chatId": "team-hq",
+      "sender": "henry",
+      "content": "Team HQ is live. This is our main channel for all-hands updates and coordination.",
+      "timestamp": "2025-01-15T08:30:00Z"
+    },
+    {
+      "id": "msg-2",
+      "chatId": "team-hq",
+      "sender": "arthur",
+      "content": "Good to be here. Ready to sync on outreach progress.",
+      "timestamp": "2025-01-15T08:32:00Z"
+    },
+    {
+      "id": "msg-3",
+      "chatId": "team-hq",
+      "sender": "nova",
+      "content": "Data pipelines are initialized. Standing by for analytics requests.",
+      "timestamp": "2025-01-15T08:35:00Z"
+    }
+  ],
+  "meetings": []
+}
