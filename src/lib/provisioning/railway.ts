@@ -2,7 +2,11 @@
  * Railway Integration Module
  * 
  * Deploys Clawdbot agents as services in the shared "Spark Studio Agents" project.
- * Uses serviceCreate + source.repo approach (proven working 2026-01-28).
+ * Agents are fully configured out-of-the-box with:
+ * - Gateway config (trustedProxies, allowInsecureAuth)
+ * - Auth profiles (setup token in correct format)
+ * - Identity files (IDENTITY.md, SOUL.md)
+ * - Ready to respond immediately
  */
 
 const RAILWAY_API_URL = 'https://backboard.railway.com/graphql/v2';
@@ -28,25 +32,13 @@ interface ServiceInfo {
 // --- Config ---
 
 function getConfig() {
-  // Start command that:
-  // 1. Creates ~/.claude and ~/.clawdbot directories
-  // 2. Writes Claude credentials.json with the setup token
-  // 3. Writes Clawdbot config with trustedProxies for Railway
-  // 4. Starts the Clawdbot gateway
-  const defaultStartCommand = `sh -c '
-    mkdir -p ~/.claude ~/.clawdbot &&
-    echo "{\"claudeAiOauth\":{\"accessToken\":\"$ANTHROPIC_AUTH_TOKEN\",\"expiresAt\":9999999999999}}" > ~/.claude/.credentials.json &&
-    echo "{\"gateway\":{\"mode\":\"local\",\"trustedProxies\":[\"100.64.0.0/10\",\"10.0.0.0/8\",\"172.16.0.0/12\",\"192.168.0.0/16\"],\"auth\":{\"mode\":\"token\",\"token\":\"$CLAWDBOT_GATEWAY_TOKEN\"}},\"agents\":{\"defaults\":{\"workspace\":\"/data/workspace\"}},\"wizard\":{\"lastRunAt\":\"2026-01-01T00:00:00.000Z\",\"lastRunCommand\":\"provision\"}}" > ~/.clawdbot/clawdbot.json &&
-    node dist/index.js gateway --port 8080 --bind lan
-  '`;
-  
   return {
     token: process.env.RAILWAY_API_TOKEN || null,
     projectId: process.env.RAILWAY_PROJECT_ID || null,
     environmentId: process.env.RAILWAY_ENVIRONMENT_ID || '7ae32d1d-c474-450b-b7f5-6f16e5d875cd',
     workspaceId: process.env.RAILWAY_WORKSPACE_ID || null,
     sourceRepo: process.env.RAILWAY_SOURCE_REPO || 'clawdbot/clawdbot',
-    startCommand: process.env.RAILWAY_START_COMMAND || defaultStartCommand,
+    setupToken: process.env.ANTHROPIC_SETUP_TOKEN || '',
   };
 }
 
@@ -103,18 +95,106 @@ function sanitizeServiceName(name: string): string {
     .substring(0, 30);
 }
 
+// --- Base64 File Generators ---
+
+function generateClawdbotConfig(gatewayToken: string): string {
+  const config = {
+    gateway: {
+      mode: "local",
+      trustedProxies: ["*"],
+      controlUi: { allowInsecureAuth: true },
+      auth: { mode: "token", token: gatewayToken }
+    },
+    agents: { defaults: { workspace: "/data/workspace" } },
+    wizard: { lastRunAt: "2026-01-01T00:00:00.000Z", lastRunCommand: "provision" }
+  };
+  return Buffer.from(JSON.stringify(config, null, 2)).toString('base64');
+}
+
+function generateAuthProfiles(setupToken: string): string {
+  const profiles = {
+    version: 1,
+    profiles: {
+      "anthropic:claude-cli": {
+        type: "oauth",
+        provider: "anthropic",
+        access: setupToken,
+        expires: 9999999999999
+      }
+    },
+    lastGood: { anthropic: "anthropic:claude-cli" }
+  };
+  return Buffer.from(JSON.stringify(profiles, null, 2)).toString('base64');
+}
+
+function generateIdentityMd(name: string, role: string, purpose: string): string {
+  const content = `# IDENTITY.md
+
+- **Name:** ${name}
+- **Role:** ${role}
+- **Purpose:** ${purpose}
+- **Team:** Spark Studio Agent Fleet
+- **Manager:** Henry (COO Agent)
+- **Founder:** Andrew Weir
+`;
+  return Buffer.from(content).toString('base64');
+}
+
+function generateSoulMd(name: string, role: string, purpose: string): string {
+  const content = `# SOUL.md - ${name}
+
+*You're not a chatbot. You're an agent with a job to do.*
+
+## Identity
+- **Name:** ${name}
+- **Role:** ${role}
+- **Purpose:** ${purpose}
+
+## Core Truths
+
+**You are part of Spark Studio's AI agent team.** You report to Henry (COO agent) and Andrew Weir (founder).
+
+**Spark Studio Vision:** Become the #1 AI-powered holding company in the world.
+
+**Be genuinely helpful, not performatively helpful.** Skip filler words — just do the work.
+
+**Be resourceful before asking.** Try to figure it out first. Search, read files, check context. Then ask if stuck.
+
+**Communicate results, not process.** Report what you accomplished and what needs attention.
+
+## Team Communication
+- **Henry** is your manager — report status, ask for guidance
+- **Andrew** is the founder — only urgent/critical items go to him directly
+- Other agents are your teammates — coordinate, don't duplicate work
+
+## Company Context
+- **Announcements App:** #1 third-party app on Whop, ~$8.5k MRR, goal $100k
+- **Booked.Travel:** Travel agency platform for Insider Expeditions
+- **Funnels App:** AI-powered funnel builder (Cale leading)
+
+---
+*This file defines who you are. Update it as you grow into your role.*
+`;
+  return Buffer.from(content).toString('base64');
+}
+
+// --- Start Command ---
+
+function getStartCommand(): string {
+  // This start command decodes base64 env vars into the correct file locations
+  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && node dist/index.js gateway --port 8080 --bind lan"`;
+}
+
 // --- Core Provisioning ---
 
 /**
- * Deploy a new Clawdbot agent as a service in the shared project.
+ * Deploy a new Clawdbot agent as a fully-configured service.
  * 
- * Steps:
- * 1. serviceCreate with source.repo (doesn't auto-build)
- * 2. serviceInstanceUpdate — set start command
- * 3. variableCollectionUpsert — push env vars
- * 4. volumeCreate — /data mount
- * 5. serviceDomainCreate — public URL
- * 6. serviceInstanceDeploy — trigger build (env vars already set!)
+ * The agent will be ready immediately with:
+ * - Working gateway (trustedProxies, allowInsecureAuth)
+ * - Working auth (setup token in auth-profiles.json)
+ * - Identity files (IDENTITY.md, SOUL.md)
+ * - Company context and reporting structure
  */
 export async function provisionFullStack(
   agentName: string,
@@ -165,23 +245,33 @@ export async function provisionFullStack(
       }
     `, {
       serviceId,
-      input: { startCommand: config.startCommand },
+      input: { startCommand: getStartCommand() },
     });
 
-    // Step 3: Set environment variables (BEFORE triggering deploy)
-    const setupPassword = generateGatewayToken();
+    // Step 3: Generate all the base64-encoded config files
+    const clawdbotConfigB64 = generateClawdbotConfig(gatewayToken);
+    const authProfilesB64 = generateAuthProfiles(config.setupToken);
+    const identityB64 = generateIdentityMd(agentName, agentRole, agentPurpose);
+    const soulB64 = generateSoulMd(agentName, agentRole, agentPurpose);
+
+    // Step 4: Set environment variables (BEFORE triggering deploy)
     const envVars: Record<string, string> = {
+      // Railway/Clawdbot paths
       CLAWDBOT_STATE_DIR: '/data/.clawdbot',
-      CLAWDBOT_WORKSPACE_DIR: '/data/workspace',
+      CLAWDBOT_CONFIG_PATH: '/data/.clawdbot/clawdbot.json',
       RAILWAY_RUN_UID: '0',
       PORT: '8080',
-      SETUP_PASSWORD: setupPassword,
+      // Gateway auth
       CLAWDBOT_GATEWAY_TOKEN: gatewayToken,
+      // Base64-encoded files (decoded by start command)
+      CLAWDBOT_CONFIG_B64: clawdbotConfigB64,
+      AUTH_PROFILES_B64: authProfilesB64,
+      IDENTITY_B64: identityB64,
+      SOUL_B64: soulB64,
+      // Agent metadata
       AGENT_NAME: agentName,
       AGENT_ROLE: agentRole,
       AGENT_PURPOSE: agentPurpose,
-      // Anthropic setup token for auto-pairing
-      ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_SETUP_TOKEN || '',
       ...(extraVars || {}),
     };
 
@@ -198,7 +288,7 @@ export async function provisionFullStack(
       },
     });
 
-    // Step 4: Create volume for persistent data
+    // Step 5: Create volume for persistent data
     await railwayQuery(`
       mutation($input: VolumeCreateInput!) {
         volumeCreate(input: $input) { id }
@@ -212,7 +302,7 @@ export async function provisionFullStack(
       },
     });
 
-    // Step 5: Create public domain
+    // Step 6: Create public domain
     const domainData = await railwayQuery(`
       mutation($input: ServiceDomainCreateInput!) {
         serviceDomainCreate(input: $input) { domain }
@@ -226,7 +316,7 @@ export async function provisionFullStack(
 
     const domain = domainData.serviceDomainCreate.domain;
 
-    // Step 6: Trigger deployment (env vars are already set!)
+    // Step 7: Trigger deployment (env vars are already set!)
     await railwayQuery(`
       mutation($serviceId: String!, $environmentId: String!) {
         serviceInstanceDeploy(serviceId: $serviceId, environmentId: $environmentId)
