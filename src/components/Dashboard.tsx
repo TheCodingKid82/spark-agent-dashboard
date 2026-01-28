@@ -209,17 +209,23 @@ export default function Dashboard() {
             const railwayAgents: Agent[] = data.agents.map((record: {
               agentId: string;
               agentName: string;
+              agentRole?: string;
+              agentPurpose?: string;
               roleTemplate?: string;
               domain?: string;
+              gatewayUrl?: string;
+              gatewayToken?: string;
               liveStatus?: string;
               provisionedAt?: string;
+              railwayProjectId?: string;
+              railwayServiceId?: string;
             }) => ({
               id: record.agentId,
               name: record.agentName,
-              role: record.roleTemplate || 'Agent',
+              role: record.agentRole || record.roleTemplate || 'Agent',
               emoji: '🤖',
               status: record.liveStatus === 'SUCCESS' ? 'online' : 'offline',
-              purpose: `Provisioned agent`,
+              purpose: record.agentPurpose || `Provisioned agent`,
               specialties: [],
               parentId: 'henry', // All provisioned agents report to Henry
               recentActivity: [],
@@ -230,8 +236,13 @@ export default function Dashboard() {
                 lastActive: record.provisionedAt || new Date().toISOString(),
               },
               infrastructure: {
-                railwayUrl: record.domain ? `https://${record.domain}` : undefined,
+                railwayProjectId: record.railwayProjectId,
+                railwayServiceId: record.railwayServiceId,
+                railwayUrl: record.railwayProjectId ? `https://railway.app/project/${record.railwayProjectId}` : undefined,
                 railwayStatus: record.liveStatus,
+                gatewayUrl: record.gatewayUrl || (record.domain ? `https://${record.domain}` : undefined),
+                gatewayToken: record.gatewayToken,
+                provisionedAt: record.provisionedAt,
               },
             }));
             // Merge core agents with Railway agents (avoid duplicates)

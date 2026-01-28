@@ -170,6 +170,21 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
             </span>
           )}
         </div>
+
+        {/* Chat Button for real agents */}
+        {infra?.gatewayUrl && (
+          <div className="mt-3">
+            <a
+              href={`${infra.gatewayUrl}${infra.gatewayToken ? `?token=${infra.gatewayToken}` : ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/25"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Open Chat
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Content */}

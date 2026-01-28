@@ -21,8 +21,10 @@ export interface AgentMetrics {
 export interface AgentInfrastructure {
   railwayProjectId?: string;
   railwayServiceId?: string;
-  railwayStatus?: 'pending' | 'deploying' | 'running' | 'stopped' | 'error';
+  railwayStatus?: 'pending' | 'deploying' | 'running' | 'stopped' | 'error' | string;
   railwayUrl?: string;
+  gatewayUrl?: string;
+  gatewayToken?: string;
   email?: string;
   whopUsername?: string;
   provisionedAt?: string;
