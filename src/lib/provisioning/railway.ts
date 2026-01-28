@@ -96,16 +96,13 @@ function sanitizeServiceName(name: string): string {
 /**
  * Deploy a new Clawdbot agent as a service in the shared project.
  * 
- * IMPORTANT: We create the service WITHOUT a source first, configure everything,
- * then add the source repo. This ensures env vars (including ANTHROPIC_AUTH_TOKEN)
- * are set BEFORE the first build starts.
- * 
  * Steps:
- * 1. serviceCreate (empty, no source)
- * 2. variableCollectionUpsert — push env vars (BEFORE any build)
- * 3. volumeCreate — /data mount
- * 4. serviceDomainCreate — public URL
- * 5. serviceInstanceUpdate — set source repo + start command (triggers build)
+ * 1. serviceCreate with source.repo (doesn't auto-build)
+ * 2. serviceInstanceUpdate — set start command
+ * 3. variableCollectionUpsert — push env vars
+ * 4. volumeCreate — /data mount
+ * 5. serviceDomainCreate — public URL
+ * 6. serviceInstanceDeploy — trigger build (env vars already set!)
  */
 export async function provisionFullStack(
   agentName: string,
@@ -134,7 +131,7 @@ export async function provisionFullStack(
   const gatewayToken = generateGatewayToken();
 
   try {
-    // Step 1: Create empty service (NO source yet - prevents premature build)
+    // Step 1: Create the service with GitHub repo source
     const createData = await railwayQuery(`
       mutation($input: ServiceCreateInput!) {
         serviceCreate(input: $input) { id name }
@@ -143,13 +140,23 @@ export async function provisionFullStack(
       input: {
         projectId: config.projectId,
         name: serviceName,
-        // No source here - we add it later after env vars are set
+        source: { repo: config.sourceRepo },
       },
     }) as { serviceCreate: { id: string; name: string } };
 
     const serviceId = createData.serviceCreate.id;
 
-    // Step 2: Set environment variables FIRST (before any build starts)
+    // Step 2: Set start command
+    await railwayQuery(`
+      mutation($serviceId: String!, $input: ServiceInstanceUpdateInput!) {
+        serviceInstanceUpdate(serviceId: $serviceId, input: $input)
+      }
+    `, {
+      serviceId,
+      input: { startCommand: config.startCommand },
+    });
+
+    // Step 3: Set environment variables (BEFORE triggering deploy)
     const setupPassword = generateGatewayToken();
     const envVars: Record<string, string> = {
       CLAWDBOT_STATE_DIR: '/data/.clawdbot',
@@ -161,7 +168,7 @@ export async function provisionFullStack(
       AGENT_NAME: agentName,
       AGENT_ROLE: agentRole,
       AGENT_PURPOSE: agentPurpose,
-      // Anthropic setup token for auto-pairing - MUST be set before first boot
+      // Anthropic setup token for auto-pairing
       ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_SETUP_TOKEN || '',
       ...(extraVars || {}),
     };
@@ -179,7 +186,7 @@ export async function provisionFullStack(
       },
     });
 
-    // Step 3: Create volume for persistent data
+    // Step 4: Create volume for persistent data
     await railwayQuery(`
       mutation($input: VolumeCreateInput!) {
         volumeCreate(input: $input) { id }
@@ -193,7 +200,7 @@ export async function provisionFullStack(
       },
     });
 
-    // Step 4: Create public domain
+    // Step 5: Create public domain
     const domainData = await railwayQuery(`
       mutation($input: ServiceDomainCreateInput!) {
         serviceDomainCreate(input: $input) { domain }
@@ -207,29 +214,14 @@ export async function provisionFullStack(
 
     const domain = domainData.serviceDomainCreate.domain;
 
-    // Step 5: Set start command
+    // Step 6: Trigger deployment (env vars are already set!)
     await railwayQuery(`
-      mutation($serviceId: String!, $input: ServiceInstanceUpdateInput!) {
-        serviceInstanceUpdate(serviceId: $serviceId, input: $input)
+      mutation($serviceId: String!, $environmentId: String!) {
+        serviceInstanceDeploy(serviceId: $serviceId, environmentId: $environmentId)
       }
     `, {
       serviceId,
-      input: {
-        startCommand: config.startCommand,
-      },
-    });
-
-    // Step 6: Connect the GitHub repo (this triggers the build)
-    // All env vars are already configured, so the build will have ANTHROPIC_AUTH_TOKEN
-    await railwayQuery(`
-      mutation($id: String!, $input: ServiceConnectInput!) {
-        serviceConnect(id: $id, input: $input) { id }
-      }
-    `, {
-      id: serviceId,
-      input: {
-        repo: config.sourceRepo,
-      },
+      environmentId: config.environmentId,
     });
 
     return {
