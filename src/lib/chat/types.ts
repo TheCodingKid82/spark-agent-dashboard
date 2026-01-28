@@ -58,7 +58,7 @@ export interface SendMessageRequest {
   to: string;
   content: string;
   type?: ChatMessage['type'];
-  priority?: ChatMessage['metadata']['priority'];
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
 }
 
 export interface SendMessageResponse {
