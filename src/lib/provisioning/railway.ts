@@ -168,6 +168,8 @@ export async function provisionFullStack(
       AGENT_NAME: agentName,
       AGENT_ROLE: agentRole,
       AGENT_PURPOSE: agentPurpose,
+      // Anthropic setup token for agent authentication
+      ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_SETUP_TOKEN || '',
       ...(extraVars || {}),
     };
 
