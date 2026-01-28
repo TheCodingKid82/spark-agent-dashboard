@@ -96,13 +96,16 @@ function sanitizeServiceName(name: string): string {
 /**
  * Deploy a new Clawdbot agent as a service in the shared project.
  * 
+ * IMPORTANT: We create the service WITHOUT a source first, configure everything,
+ * then add the source repo. This ensures env vars (including ANTHROPIC_AUTH_TOKEN)
+ * are set BEFORE the first build starts.
+ * 
  * Steps:
- * 1. serviceCreate with source.repo
- * 2. serviceInstanceUpdate — set start command
- * 3. variableCollectionUpsert — push env vars
- * 4. volumeCreate — /data mount
- * 5. serviceDomainCreate — public URL
- * 6. serviceInstanceDeploy — trigger build
+ * 1. serviceCreate (empty, no source)
+ * 2. variableCollectionUpsert — push env vars (BEFORE any build)
+ * 3. volumeCreate — /data mount
+ * 4. serviceDomainCreate — public URL
+ * 5. serviceInstanceUpdate — set source repo + start command (triggers build)
  */
 export async function provisionFullStack(
   agentName: string,
@@ -131,7 +134,7 @@ export async function provisionFullStack(
   const gatewayToken = generateGatewayToken();
 
   try {
-    // Step 1: Create the service with GitHub repo source
+    // Step 1: Create empty service (NO source yet - prevents premature build)
     const createData = await railwayQuery(`
       mutation($input: ServiceCreateInput!) {
         serviceCreate(input: $input) { id name }
@@ -140,24 +143,14 @@ export async function provisionFullStack(
       input: {
         projectId: config.projectId,
         name: serviceName,
-        source: { repo: config.sourceRepo },
+        // No source here - we add it later after env vars are set
       },
     }) as { serviceCreate: { id: string; name: string } };
 
     const serviceId = createData.serviceCreate.id;
 
-    // Step 2: Set start command
-    await railwayQuery(`
-      mutation($serviceId: String!, $input: ServiceInstanceUpdateInput!) {
-        serviceInstanceUpdate(serviceId: $serviceId, input: $input)
-      }
-    `, {
-      serviceId,
-      input: { startCommand: config.startCommand },
-    });
-
-    // Step 3: Set environment variables
-    const setupPassword = generateGatewayToken(); // reuse for setup password
+    // Step 2: Set environment variables FIRST (before any build starts)
+    const setupPassword = generateGatewayToken();
     const envVars: Record<string, string> = {
       CLAWDBOT_STATE_DIR: '/data/.clawdbot',
       CLAWDBOT_WORKSPACE_DIR: '/data/workspace',
@@ -168,7 +161,7 @@ export async function provisionFullStack(
       AGENT_NAME: agentName,
       AGENT_ROLE: agentRole,
       AGENT_PURPOSE: agentPurpose,
-      // Anthropic setup token for agent authentication
+      // Anthropic setup token for auto-pairing - MUST be set before first boot
       ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_SETUP_TOKEN || '',
       ...(extraVars || {}),
     };
@@ -186,7 +179,7 @@ export async function provisionFullStack(
       },
     });
 
-    // Step 4: Create volume for persistent data
+    // Step 3: Create volume for persistent data
     await railwayQuery(`
       mutation($input: VolumeCreateInput!) {
         volumeCreate(input: $input) { id }
@@ -200,7 +193,7 @@ export async function provisionFullStack(
       },
     });
 
-    // Step 5: Create public domain
+    // Step 4: Create public domain
     const domainData = await railwayQuery(`
       mutation($input: ServiceDomainCreateInput!) {
         serviceDomainCreate(input: $input) { domain }
@@ -214,14 +207,18 @@ export async function provisionFullStack(
 
     const domain = domainData.serviceDomainCreate.domain;
 
-    // Step 6: Trigger deployment
+    // Step 5: NOW set the source repo + start command (this triggers the build)
+    // All env vars are already configured, so the build will have ANTHROPIC_AUTH_TOKEN
     await railwayQuery(`
-      mutation($serviceId: String!, $environmentId: String!) {
-        serviceInstanceDeploy(serviceId: $serviceId, environmentId: $environmentId)
+      mutation($serviceId: String!, $input: ServiceInstanceUpdateInput!) {
+        serviceInstanceUpdate(serviceId: $serviceId, input: $input)
       }
     `, {
       serviceId,
-      environmentId: config.environmentId,
+      input: {
+        source: { repo: config.sourceRepo },
+        startCommand: config.startCommand,
+      },
     });
 
     return {
