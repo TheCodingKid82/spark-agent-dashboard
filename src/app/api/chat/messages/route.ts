@@ -8,6 +8,9 @@
  * - all: Optional - if 'true', get all messages (Andrew's observer view)
  */
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import * as store from '@/lib/chat/store';
 

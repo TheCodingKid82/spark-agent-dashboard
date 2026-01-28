@@ -4,6 +4,9 @@
  * Send a message to an agent or between agents.
  */
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { sendMessage } from '@/lib/chat/router';
 import { SendMessageRequest } from '@/lib/chat/types';

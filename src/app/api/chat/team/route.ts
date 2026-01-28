@@ -9,6 +9,9 @@
  * Register or update an agent in the team roster.
  */
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import * as store from '@/lib/chat/store';
 import { getTeamRoster, pingAllAgents } from '@/lib/chat/router';
