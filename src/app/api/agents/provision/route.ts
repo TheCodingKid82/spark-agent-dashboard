@@ -7,6 +7,7 @@ import { generateWorkspaceFiles, generateAgentDirectoryMd } from '@/lib/provisio
 import { pushGatewayConfig, pushWorkspaceFiles, sendAgentMessage, checkAgentHealth } from '@/lib/provisioning/gateway-config';
 import type { ProvisioningRecord } from '@/lib/provisioning/store';
 import { getAllRecords } from '@/lib/provisioning/store';
+import { store as chatStore } from '@/lib/chat';
 
 interface ProvisionRequest {
   agentId: string;
@@ -216,7 +217,30 @@ export async function POST(request: Request) {
       }
     }
 
-    // === STEP 8: Update Agent Directory ===
+    // === STEP 8: Register in Chat Team Roster ===
+    if (record.gatewayUrl && record.gatewayToken) {
+      try {
+        await chatStore.registerAgent({
+          id: agentId,
+          name: agentName,
+          role: agentRole,
+          purpose: agentPurpose,
+          gatewayUrl: record.domain || '',
+          gatewayToken: record.gatewayToken,
+          status: record.healthStatus === 'healthy' ? 'online' : 'offline',
+          capabilities: roleTemplate ? [roleTemplate] : [],
+        });
+        steps.push({
+          id: 'chat-roster',
+          status: 'complete',
+          message: 'Registered in team chat roster',
+        });
+      } catch (error) {
+        steps.push({ id: 'chat-roster', status: 'error', message: String(error) });
+      }
+    }
+
+    // === STEP 9: Update Agent Directory ===
     try {
       const allAgents = getAllRecords();
       // Add current agent to the list

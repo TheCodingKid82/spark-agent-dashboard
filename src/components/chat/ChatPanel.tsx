@@ -1,18 +1,26 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useCallback } from "react";
-import type { Chat } from "@/types/chat";
-import type { Agent } from "@/types/agent";
-import ChatRoom from "./ChatRoom";
-import {
-  X,
-  MessageSquare,
-  Users,
-  Hash,
-  MessageCircle,
-  Search,
-  Calendar,
-} from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Send, Eye, MessageCircle } from 'lucide-react';
+import type { Agent } from '@/types/agent';
+
+interface ChatMessage {
+  id: string;
+  timestamp: number;
+  from: string;
+  to: string;
+  content: string;
+  type?: 'text' | 'task' | 'report' | 'escalation';
+  read?: boolean;
+}
+
+interface Conversation {
+  id: string;
+  participants: string[];
+  lastMessage: ChatMessage;
+  unreadCount: number;
+  updatedAt: number;
+}
 
 interface ChatPanelProps {
   agents: Agent[];
@@ -22,254 +30,388 @@ interface ChatPanelProps {
   currentUserId: string;
 }
 
-type ChatFilter = "all" | "dm" | "group" | "team";
+export default function ChatPanel({ agents, isOpen, onClose, initialChatId, currentUserId }: ChatPanelProps) {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConv, setSelectedConv] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [viewMode, setViewMode] = useState<'conversations' | 'observer'>('conversations');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-export default function ChatPanel({
-  agents,
-  isOpen,
-  onClose,
-  initialChatId,
-  currentUserId,
-}: ChatPanelProps) {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<ChatFilter>("all");
-  const [messageCounts, setMessageCounts] = useState<Record<string, number>>({});
-
-  // Fetch all chats
-  const fetchChats = useCallback(async () => {
-    try {
-      const res = await fetch("/api/chats");
-      if (res.ok) {
-        const data = await res.json();
-        setChats(data);
-      }
-    } catch {
-      // silently fail
-    }
-  }, []);
-
+  // Load data when panel opens
   useEffect(() => {
     if (isOpen) {
-      fetchChats();
-    }
-  }, [isOpen, fetchChats]);
-
-  // Handle initial chat selection
-  useEffect(() => {
-    if (initialChatId && chats.length > 0) {
-      const chat = chats.find((c) => c.id === initialChatId);
-      if (chat) {
-        setSelectedChat(chat);
+      loadConversations();
+      if (initialChatId) {
+        setSelectedConv(initialChatId);
+        setViewMode('conversations');
       }
     }
-  }, [initialChatId, chats]);
+  }, [isOpen, initialChatId]);
 
-  // Fetch message counts for unread indicators
+  // Poll for updates while open
   useEffect(() => {
     if (!isOpen) return;
-    const fetchCounts = async () => {
-      const counts: Record<string, number> = {};
-      for (const chat of chats) {
-        try {
-          const res = await fetch(`/api/messages/${chat.id}`);
-          if (res.ok) {
-            const msgs = await res.json();
-            counts[chat.id] = msgs.length;
-          }
-        } catch {
-          // silently fail
-        }
+    
+    const interval = setInterval(() => {
+      loadConversations();
+      if (selectedConv || viewMode === 'observer') {
+        loadMessages();
       }
-      setMessageCounts(counts);
-    };
-    if (chats.length > 0) fetchCounts();
-  }, [chats, isOpen]);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [isOpen, selectedConv, viewMode]);
 
-  const getChatDisplayName = (chat: Chat) => {
-    if (chat.type === "dm") {
-      const otherId = chat.members.find((m) => m !== currentUserId);
-      const other = agents.find((a) => a.id === otherId);
-      return other ? `${other.emoji} ${other.name}` : "Direct Message";
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (selectedConv || viewMode === 'observer') {
+      loadMessages();
     }
-    return chat.name;
-  };
+  }, [selectedConv, viewMode]);
 
-  const getChatEmoji = (chat: Chat) => {
-    if (chat.type === "dm") {
-      const otherId = chat.members.find((m) => m !== currentUserId);
-      const other = agents.find((a) => a.id === otherId);
-      return other?.emoji || "💬";
+  // Scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function loadConversations() {
+    try {
+      const res = await fetch('/api/chat/conversations');
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data.conversations || []);
+      }
+    } catch (e) {
+      console.error('Failed to load conversations:', e);
     }
-    if (chat.type === "team") return "🏢";
-    if (chat.type === "meeting") return "📅";
-    return "💬";
-  };
+  }
 
-  const getChatIcon = (chat: Chat) => {
-    if (chat.type === "dm") return <MessageCircle className="w-3.5 h-3.5 text-zinc-500" />;
-    if (chat.type === "team") return <Users className="w-3.5 h-3.5 text-indigo-400" />;
-    if (chat.type === "meeting") return <Calendar className="w-3.5 h-3.5 text-purple-400" />;
-    return <Hash className="w-3.5 h-3.5 text-zinc-500" />;
-  };
+  async function loadMessages() {
+    setLoading(true);
+    try {
+      let url = '/api/chat/messages?';
+      if (viewMode === 'observer') {
+        url += 'all=true&limit=200';
+      } else if (selectedConv) {
+        const parts = selectedConv.replace('dm-', '').split('-');
+        if (parts.length >= 2) {
+          url += `participant1=${parts[0]}&participant2=${parts[1]}&limit=100`;
+        } else {
+          return;
+        }
+      } else {
+        return;
+      }
+      
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+      }
+    } catch (e) {
+      console.error('Failed to load messages:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const filteredChats = chats.filter((chat) => {
-    const matchesFilter =
-      filter === "all" ||
-      chat.type === filter ||
-      (filter === "group" && (chat.type === "group" || chat.type === "meeting"));
-    const displayName = getChatDisplayName(chat).toLowerCase();
-    const matchesSearch = displayName.includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  async function sendMessage() {
+    if (!newMessage.trim() || !selectedConv) return;
+    
+    // Extract recipient from conversation ID
+    const parts = selectedConv.replace('dm-', '').split('-');
+    const recipient = parts.find(p => p !== currentUserId);
+    if (!recipient) return;
 
-  // Sort: team first, then by last message
-  const sortedChats = [...filteredChats].sort((a, b) => {
-    if (a.type === "team" && b.type !== "team") return -1;
-    if (b.type === "team" && a.type !== "team") return 1;
-    const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-    const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-    return bTime - aTime;
-  });
+    setSending(true);
+    try {
+      const res = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: currentUserId,
+          to: recipient,
+          content: newMessage,
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setNewMessage('');
+        // Optimistically add message
+        const newMsg: ChatMessage = {
+          id: data.messageId || `temp-${Date.now()}`,
+          timestamp: Date.now(),
+          from: currentUserId,
+          to: recipient,
+          content: newMessage,
+          type: 'text',
+        };
+        setMessages(prev => [...prev, newMsg]);
+        
+        // If agent responded, add that too
+        if (data.agentResponse) {
+          const responseMsg: ChatMessage = {
+            id: `resp-${Date.now()}`,
+            timestamp: Date.now() + 1,
+            from: recipient,
+            to: currentUserId,
+            content: data.agentResponse,
+            type: 'text',
+          };
+          setTimeout(() => {
+            setMessages(prev => [...prev, responseMsg]);
+          }, 500);
+        }
+      } else {
+        alert('Failed to send: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error('Send error:', e);
+      alert('Failed to send message');
+    } finally {
+      setSending(false);
+    }
+  }
 
-  const handleMessagesUpdate = useCallback(() => {
-    fetchChats();
-  }, [fetchChats]);
+  const getAgentName = useCallback((id: string): string => {
+    if (id === 'andrew') return 'Andrew';
+    if (id === currentUserId) return 'You';
+    const agent = agents.find(a => a.id === id);
+    return agent?.name || id;
+  }, [agents, currentUserId]);
+
+  const getAgentEmoji = useCallback((id: string): string => {
+    if (id === 'andrew') return '👑';
+    const agent = agents.find(a => a.id === id);
+    return agent?.emoji || '🤖';
+  }, [agents]);
+
+  function formatTime(ts: number): string {
+    return new Date(ts).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  function startChatWith(agentId: string) {
+    const parts = [currentUserId, agentId].sort();
+    setSelectedConv(`dm-${parts[0]}-${parts[1]}`);
+    setViewMode('conversations');
+  }
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
+  const selectedRecipient = selectedConv
+    ? selectedConv.replace('dm-', '').split('-').find(p => p !== currentUserId)
+    : null;
 
-      {/* Panel */}
-      <div className="relative w-full max-w-md h-full bg-[#0c0c14] border-l border-zinc-800/50 flex slide-in-right shadow-2xl shadow-black/50">
-        {/* Chat List Sidebar */}
-        {!selectedChat && (
-          <div className="flex-1 flex flex-col">
-            {/* Header */}
-            <div className="flex-shrink-0 px-4 py-3.5 border-b border-zinc-800/50 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-indigo-400" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-zinc-100">Messages</h2>
-                  <p className="text-[10px] text-zinc-500">
-                    {chats.length} conversations
-                  </p>
-                </div>
-              </div>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-[900px] h-[700px] bg-[#0d0d12] rounded-xl shadow-2xl border border-gray-800 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-[#12121a]">
+          <div className="flex items-center gap-3">
+            <MessageCircle className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-lg font-semibold text-white">Agent Communications</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex rounded-lg overflow-hidden border border-gray-700">
               <button
-                onClick={onClose}
-                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-zinc-800 transition-colors"
+                onClick={() => setViewMode('conversations')}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${
+                  viewMode === 'conversations'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
               >
-                <X className="w-4 h-4 text-zinc-500" />
+                <MessageCircle className="w-4 h-4" />
+                Chats
+              </button>
+              <button
+                onClick={() => { setViewMode('observer'); setSelectedConv(null); }}
+                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${
+                  viewMode === 'observer'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                <Eye className="w-4 h-4" />
+                Observer
               </button>
             </div>
+            <button onClick={onClose} className="p-1.5 hover:bg-gray-800 rounded-lg">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
 
-            {/* Search */}
-            <div className="px-4 py-2.5 border-b border-zinc-800/30">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search chats..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-800/50 border border-zinc-700/50 rounded-lg text-zinc-300 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                />
-              </div>
-
-              {/* Filters */}
-              <div className="flex gap-1 mt-2">
-                {(["all", "dm", "team", "group"] as ChatFilter[]).map((f) => (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <div className="w-64 border-r border-gray-800 flex flex-col bg-[#0a0a0f]">
+            {/* Agent Quick Start */}
+            <div className="p-3 border-b border-gray-800">
+              <div className="text-xs text-gray-500 mb-2">Start new chat:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {agents.filter(a => a.id !== currentUserId).map(agent => (
                   <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`
-                      flex-1 px-2 py-1 rounded-md text-[10px] font-medium capitalize transition-all
-                      ${
-                        filter === f
-                          ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-                          : "text-zinc-500 hover:text-zinc-400 hover:bg-zinc-800/50 border border-transparent"
-                      }
-                    `}
+                    key={agent.id}
+                    onClick={() => startChatWith(agent.id)}
+                    className={`px-2 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
+                      agent.status === 'online'
+                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+                        : 'bg-gray-900 text-gray-500'
+                    }`}
+                    title={agent.purpose}
                   >
-                    {f === "dm" ? "DMs" : f}
+                    <span>{agent.emoji}</span>
+                    <span>{agent.name}</span>
+                    {agent.status === 'online' && (
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Chat List */}
+            {/* Conversations List */}
             <div className="flex-1 overflow-y-auto">
-              {sortedChats.map((chat) => {
-                const count = messageCounts[chat.id] || 0;
-                return (
-                  <button
-                    key={chat.id}
-                    onClick={() => setSelectedChat(chat)}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-zinc-800/30 transition-all duration-200 border-b border-zinc-800/20 group"
-                  >
-                    {/* Avatar */}
-                    <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-zinc-800/80 flex items-center justify-center text-lg border border-zinc-700/40 group-hover:border-zinc-600/60 transition-colors">
-                      {getChatEmoji(chat)}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center gap-1.5">
-                        {getChatIcon(chat)}
-                        <span className="text-xs font-semibold text-zinc-200 truncate">
-                          {getChatDisplayName(chat)}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-zinc-600 truncate mt-0.5">
-                        {chat.members.length} members
-                        {chat.lastMessageAt
-                          ? ` · ${new Date(chat.lastMessageAt).toLocaleDateString()}`
-                          : ""}
-                      </p>
-                    </div>
-
-                    {/* Badge */}
-                    {count > 0 && (
-                      <span className="flex-shrink-0 min-w-[20px] h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-
-              {sortedChats.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <MessageSquare className="w-8 h-8 text-zinc-700 mb-2" />
-                  <p className="text-xs text-zinc-600">No chats found</p>
+              {conversations.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  No conversations yet.<br />
+                  Click an agent above to start.
                 </div>
+              ) : (
+                conversations.map(conv => {
+                  const otherParticipant = conv.participants.find(p => p !== currentUserId);
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => { setSelectedConv(conv.id); setViewMode('conversations'); }}
+                      className={`w-full p-3 text-left hover:bg-gray-800/50 border-b border-gray-800/50 transition-colors ${
+                        selectedConv === conv.id ? 'bg-gray-800/70' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="font-medium text-white text-sm flex items-center gap-1.5">
+                          <span>{getAgentEmoji(otherParticipant || '')}</span>
+                          {conv.participants.map(p => getAgentName(p)).join(' ↔ ')}
+                        </span>
+                        {conv.unreadCount > 0 && (
+                          <span className="bg-indigo-500 text-white text-xs px-1.5 rounded-full">
+                            {conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 truncate mt-1">
+                        {conv.lastMessage.content.slice(0, 40)}...
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {formatTime(conv.updatedAt)}
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
-        )}
 
-        {/* Selected Chat Room */}
-        {selectedChat && (
-          <div className="flex-1 flex flex-col">
-            <ChatRoom
-              chat={selectedChat}
-              agents={agents}
-              currentUserId={currentUserId}
-              onBack={() => setSelectedChat(null)}
-              onMessagesUpdate={handleMessagesUpdate}
-            />
+          {/* Chat Area */}
+          <div className="flex-1 flex flex-col bg-[#0d0d12]">
+            {/* Chat Header */}
+            <div className="px-4 py-3 border-b border-gray-800 bg-[#12121a]">
+              <h3 className="font-medium text-white flex items-center gap-2">
+                {viewMode === 'observer' ? (
+                  <>
+                    <Eye className="w-4 h-4 text-indigo-400" />
+                    Observer Mode - All Agent Communications
+                  </>
+                ) : selectedRecipient ? (
+                  <>
+                    <span>{getAgentEmoji(selectedRecipient)}</span>
+                    Chat with {getAgentName(selectedRecipient)}
+                  </>
+                ) : (
+                  'Select a conversation'
+                )}
+              </h3>
+              {viewMode === 'observer' && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  See all agent-to-agent messages (they don't know you're watching)
+                </p>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {loading && messages.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">Loading...</div>
+              ) : messages.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  {viewMode === 'observer'
+                    ? 'No agent-to-agent messages yet'
+                    : 'No messages yet. Send one to start the conversation.'}
+                </div>
+              ) : (
+                messages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${
+                      msg.from === currentUserId ? 'justify-end' : 'justify-start'
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[70%] rounded-xl px-4 py-2.5 ${
+                        msg.from === currentUserId
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-800 text-gray-100'
+                      }`}
+                    >
+                      {viewMode === 'observer' && (
+                        <div className="text-xs opacity-70 mb-1 flex items-center gap-1">
+                          <span>{getAgentEmoji(msg.from)}</span>
+                          {getAgentName(msg.from)} → {getAgentName(msg.to)}
+                        </div>
+                      )}
+                      <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
+                      <div className="text-xs opacity-50 mt-1.5">{formatTime(msg.timestamp)}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            {viewMode === 'conversations' && selectedRecipient && (
+              <div className="p-4 border-t border-gray-800 bg-[#12121a]">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                    placeholder={`Message ${getAgentName(selectedRecipient)}...`}
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    disabled={sending}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={sending || !newMessage.trim()}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                    {sending ? 'Sending...' : 'Send'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
