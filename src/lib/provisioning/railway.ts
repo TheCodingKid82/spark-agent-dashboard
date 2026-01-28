@@ -28,13 +28,19 @@ interface ServiceInfo {
 // --- Config ---
 
 function getConfig() {
+  // Start command that:
+  // 1. Creates ~/.claude directory
+  // 2. Writes credentials.json with the setup token from env var
+  // 3. Starts the Clawdbot gateway
+  const defaultStartCommand = `sh -c 'mkdir -p ~/.claude && echo "{\\\"claudeAiOauth\\\":{\\\"accessToken\\\":\\\"$ANTHROPIC_AUTH_TOKEN\\\",\\\"expiresAt\\\":9999999999999}}" > ~/.claude/.credentials.json && node dist/index.js gateway --allow-unconfigured --port 8080 --bind lan'`;
+  
   return {
     token: process.env.RAILWAY_API_TOKEN || null,
     projectId: process.env.RAILWAY_PROJECT_ID || null,
     environmentId: process.env.RAILWAY_ENVIRONMENT_ID || '7ae32d1d-c474-450b-b7f5-6f16e5d875cd',
     workspaceId: process.env.RAILWAY_WORKSPACE_ID || null,
     sourceRepo: process.env.RAILWAY_SOURCE_REPO || 'clawdbot/clawdbot',
-    startCommand: process.env.RAILWAY_START_COMMAND || 'node dist/index.js gateway --allow-unconfigured --port 8080 --bind lan',
+    startCommand: process.env.RAILWAY_START_COMMAND || defaultStartCommand,
   };
 }
 
