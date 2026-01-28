@@ -16,7 +16,7 @@ import {
   MarkerType,
   ConnectionMode,
 } from "@xyflow/react";
-import type { Agent, AgentData } from "@/types/agent";
+import type { Agent } from "@/types/agent";
 import AgentNode from "./AgentNode";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
@@ -25,7 +25,6 @@ import AddAgentModal from "./AddAgentModal";
 import ChatPanel from "./chat/ChatPanel";
 import MeetingScheduler from "./chat/MeetingScheduler";
 import UpcomingMeetings from "./chat/UpcomingMeetings";
-import initialData from "@/data/agents.json";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
@@ -115,48 +114,79 @@ function buildNodesAndEdges(
     },
   }));
 
-  const data = initialData as AgentData;
-  const edges: Edge[] = data.edges.map((e) => {
-    const isRecent = recentEdges.has(e.id);
-    return {
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      animated: e.animated || isRecent,
-      label: e.label,
-      type: "smoothstep",
-      style: {
-        stroke: e.animated || isRecent ? "#6366f1" : "#27272a",
-        strokeWidth: isRecent ? 3 : e.animated ? 2 : 1.5,
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: e.animated || isRecent ? "#6366f1" : "#3f3f46",
-        width: 16,
-        height: 16,
-      },
-      labelStyle: {
-        fill: "#71717a",
-        fontSize: 10,
-        fontWeight: 500,
-      },
-      labelBgStyle: {
-        fill: "#12121a",
-        fillOpacity: 0.9,
-      },
-      labelBgPadding: [6, 3] as [number, number],
-      labelBgBorderRadius: 4,
-      className: isRecent ? "edge-pulse" : "",
-    };
-  });
+  // Generate edges dynamically based on parentId relationships
+  const edges: Edge[] = agents
+    .filter(a => a.parentId)
+    .map((a) => {
+      const edgeId = `e-${a.parentId}-${a.id}`;
+      const isRecent = recentEdges.has(edgeId);
+      const isOnline = a.status === 'online';
+      return {
+        id: edgeId,
+        source: a.parentId!,
+        target: a.id,
+        animated: isOnline || isRecent,
+        type: "smoothstep",
+        style: {
+          stroke: isOnline || isRecent ? "#6366f1" : "#27272a",
+          strokeWidth: isRecent ? 3 : isOnline ? 2 : 1.5,
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: isOnline || isRecent ? "#6366f1" : "#3f3f46",
+          width: 16,
+          height: 16,
+        },
+        labelStyle: {
+          fill: "#71717a",
+          fontSize: 10,
+          fontWeight: 500,
+        },
+        labelBgStyle: {
+          fill: "#12121a",
+          fillOpacity: 0.9,
+        },
+        labelBgPadding: [6, 3] as [number, number],
+        labelBgBorderRadius: 4,
+        className: isRecent ? "edge-pulse" : "",
+      };
+    });
 
   return { nodes, edges };
 }
 
+// Core agents that always exist (you + Henry)
+const CORE_AGENTS: Agent[] = [
+  {
+    id: "andrew",
+    name: "Andrew",
+    role: "Founder & CEO",
+    emoji: "👑",
+    status: "online",
+    purpose: "Vision, strategy, and final decisions. The human behind Spark Studio.",
+    specialties: ["Strategy", "Product Vision", "Leadership", "Revenue"],
+    parentId: null,
+    recentActivity: [],
+    communications: [],
+    metrics: { tasksCompleted: 0, uptime: "100%", lastActive: new Date().toISOString() },
+  },
+  {
+    id: "henry",
+    name: "Henry",
+    role: "COO / Executive Assistant",
+    emoji: "🎯",
+    status: "online",
+    purpose: "Operations command center. Manages agents, coordinates tasks, handles Announcements app.",
+    specialties: ["Operations", "Coordination", "Announcements App", "Agent Management"],
+    parentId: "andrew",
+    recentActivity: [],
+    communications: [],
+    metrics: { tasksCompleted: 0, uptime: "99.7%", lastActive: new Date().toISOString() },
+  },
+];
+
 export default function Dashboard() {
-  const [agents, setAgents] = useState<Agent[]>(
-    (initialData as AgentData).agents
-  );
+  const [agents, setAgents] = useState<Agent[]>(CORE_AGENTS);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -164,7 +194,63 @@ export default function Dashboard() {
   const [initialChatId, setInitialChatId] = useState<string | null>(null);
   const [meetingRefreshKey, setMeetingRefreshKey] = useState(0);
   const [recentEdges, setRecentEdges] = useState<Set<string>>(new Set());
-  const [unreadCount, setUnreadCount] = useState(3); // Seed with existing messages
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch real agents from Railway on mount
+  useEffect(() => {
+    async function fetchAgents() {
+      try {
+        const res = await fetch('/api/agents');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.agents && Array.isArray(data.agents)) {
+            // Convert Railway records to Agent format
+            const railwayAgents: Agent[] = data.agents.map((record: {
+              agentId: string;
+              agentName: string;
+              roleTemplate?: string;
+              domain?: string;
+              liveStatus?: string;
+              provisionedAt?: string;
+            }) => ({
+              id: record.agentId,
+              name: record.agentName,
+              role: record.roleTemplate || 'Agent',
+              emoji: '🤖',
+              status: record.liveStatus === 'SUCCESS' ? 'online' : 'offline',
+              purpose: `Provisioned agent`,
+              specialties: [],
+              parentId: 'henry', // All provisioned agents report to Henry
+              recentActivity: [],
+              communications: [],
+              metrics: {
+                tasksCompleted: 0,
+                uptime: record.liveStatus === 'SUCCESS' ? '100%' : '0%',
+                lastActive: record.provisionedAt || new Date().toISOString(),
+              },
+              infrastructure: {
+                railwayUrl: record.domain ? `https://${record.domain}` : undefined,
+                railwayStatus: record.liveStatus,
+              },
+            }));
+            // Merge core agents with Railway agents (avoid duplicates)
+            const railwayIds = new Set(railwayAgents.map(a => a.id));
+            const merged = [
+              ...CORE_AGENTS.filter(a => !railwayIds.has(a.id)),
+              ...railwayAgents,
+            ];
+            setAgents(merged);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch agents:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchAgents();
+  }, []);
 
   const handleSelectAgent = useCallback((id: string) => {
     setSelectedAgentId((prev) => (prev === id ? null : id));
