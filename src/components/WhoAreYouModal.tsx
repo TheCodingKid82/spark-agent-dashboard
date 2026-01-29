@@ -12,7 +12,7 @@ interface UserOption {
 }
 
 const USERS: UserOption[] = [
-  { id: 'andrew', name: 'Andrew', role: 'Founder', emoji: '👑' },
+  { id: 'andrew', name: 'Andrew', role: 'Co-founder', emoji: '👑' },
   { id: 'cale', name: 'Cale', role: 'Co-founder', emoji: '🚀' },
   { id: 'arthur', name: 'Arthur', role: "Cale's Assistant", emoji: '🤖' },
   { id: 'henry', name: 'Henry', role: 'COO', emoji: '🎯' },

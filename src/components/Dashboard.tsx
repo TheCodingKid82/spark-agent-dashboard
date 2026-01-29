@@ -159,7 +159,7 @@ const CORE_AGENTS: Agent[] = [
   {
     id: "andrew",
     name: "Andrew",
-    role: "Founder & CEO",
+    role: "Co-founder",
     emoji: "👑",
     status: "online",
     purpose: "Vision, strategy, and final decisions. The human behind Spark Studio.",
