@@ -4,7 +4,7 @@ import { listServices } from '@/lib/provisioning/railway';
 
 // Services to exclude from agent list (infrastructure, not agents)
 // Case-insensitive matching done in filter below
-const EXCLUDED_SERVICE_PATTERNS = ['command-center', 'postgres'];
+const EXCLUDED_SERVICE_PATTERNS = ['command-center', 'postgres', 'browser'];
 
 // Helper to fetch env vars from Railway for a service
 async function getServiceEnvVars(serviceId: string): Promise<Record<string, string>> {
