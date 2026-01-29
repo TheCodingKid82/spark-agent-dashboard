@@ -158,7 +158,13 @@ ${conversationHistory}
 ${senderName}: ${content}
 
 ---
-This is a team chat. All agents can see this message and each other's replies. Respond naturally as you would in a group chat. Keep responses concise unless asked for details.`;
+TEAM CHAT RULES:
+- This is a group chat. Everyone can see everything.
+- DO NOT reply unless: you're directly addressed, asked a question, or have something specifically relevant to add.
+- If the message is general or for someone else, reply with just: [no response needed]
+- If you're mentioned by name or role, respond helpfully.
+- Keep responses concise. This is chat, not a report.
+- React naturally like you would in a real team Slack channel.`;
     
     // Send to all agents and collect responses
     const responses: { agent: string; response: string }[] = [];
@@ -166,15 +172,24 @@ This is a team chat. All agents can see this message and each other's replies. R
     for (const agent of agents) {
       const result = await sendToGateway(agent, teamChatMessage);
       if (result.success && result.response) {
-        responses.push({ agent: agent.name, response: result.response });
+        // Skip "[no response needed]" or similar non-responses
+        const response = result.response.trim();
+        const isNoResponse = response.toLowerCase().includes('[no response needed]') ||
+                            response.toLowerCase().includes('no response needed') ||
+                            response === '' ||
+                            response.length < 5;
         
-        // Store each agent's response as a broadcast message
-        await store.addMessage({
-          from: agent.id,
-          to: 'broadcast',
-          content: result.response,
-          type: 'text',
-        });
+        if (!isNoResponse) {
+          responses.push({ agent: agent.name, response: response });
+          
+          // Store each agent's response as a broadcast message
+          await store.addMessage({
+            from: agent.id,
+            to: 'broadcast',
+            content: response,
+            type: 'text',
+          });
+        }
       }
     }
     
