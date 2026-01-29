@@ -342,7 +342,7 @@ export async function provisionFullStack(
 
       const browserServiceId = browserCreateData.serviceCreate.id;
 
-      // Set PORT for browserless
+      // Set env vars for browserless (with persistence)
       await railwayQuery(`
         mutation($input: VariableCollectionUpsertInput!) {
           variableCollectionUpsert(input: $input)
@@ -352,7 +352,27 @@ export async function provisionFullStack(
           projectId: config.projectId,
           serviceId: browserServiceId,
           environmentId: config.environmentId,
-          variables: { PORT: '3000' },
+          variables: {
+            PORT: '3000',
+            WORKSPACE_DIR: '/data',
+            KEEP_ALIVE: 'true',
+            CONNECTION_TIMEOUT: '600000',
+            PREBOOT_CHROME: 'true',
+          },
+        },
+      });
+
+      // Create volume for persistent browser data (logins, cookies, etc.)
+      await railwayQuery(`
+        mutation($input: VolumeCreateInput!) {
+          volumeCreate(input: $input) { id }
+        }
+      `, {
+        input: {
+          projectId: config.projectId,
+          serviceId: browserServiceId,
+          environmentId: config.environmentId,
+          mountPath: '/data',
         },
       });
 
