@@ -23,15 +23,18 @@ async function sendToGateway(
 
     // gatewayUrl already includes protocol (https://...)
     const baseUrl = agent.gatewayUrl.startsWith('http') ? agent.gatewayUrl : `https://${agent.gatewayUrl}`;
-    const response = await fetch(`${baseUrl}/api/chat`, {
+    
+    // Use Clawdbot's OpenResponses API endpoint
+    const response = await fetch(`${baseUrl}/v1/responses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${agent.gatewayToken}`,
+        'x-clawdbot-agent-id': 'main',
       },
       body: JSON.stringify({
-        message: formattedMessage,
-        sessionKey: 'main',  // Use main session
+        model: 'clawdbot:main',
+        input: formattedMessage,
       }),
     });
 
@@ -41,7 +44,22 @@ async function sendToGateway(
     }
 
     const data = await response.json();
-    return { success: true, response: data.response || data.message };
+    
+    // Extract text from OpenResponses format
+    let responseText = '';
+    if (data.output && Array.isArray(data.output)) {
+      for (const item of data.output) {
+        if (item.type === 'message' && item.content) {
+          for (const content of item.content) {
+            if (content.type === 'output_text') {
+              responseText += content.text;
+            }
+          }
+        }
+      }
+    }
+    
+    return { success: true, response: responseText || 'No response' };
   } catch (error) {
     return { success: false, error: String(error) };
   }
