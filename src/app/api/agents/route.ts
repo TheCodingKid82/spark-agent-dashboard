@@ -3,7 +3,8 @@ import { getAllRecords } from '@/lib/provisioning/store';
 import { listServices } from '@/lib/provisioning/railway';
 
 // Services to exclude from agent list (infrastructure, not agents)
-const EXCLUDED_SERVICES = ['command-center'];
+// Case-insensitive matching done in filter below
+const EXCLUDED_SERVICE_PATTERNS = ['command-center', 'postgres'];
 
 // Helper to fetch env vars from Railway for a service
 async function getServiceEnvVars(serviceId: string): Promise<Record<string, string>> {
@@ -57,7 +58,7 @@ export async function GET() {
 
     // Build agent list from Railway services
     const agentPromises = railwayServices
-      .filter(svc => !EXCLUDED_SERVICES.includes(svc.name))
+      .filter(svc => !EXCLUDED_SERVICE_PATTERNS.some(pattern => svc.name.toLowerCase().includes(pattern)))
       .map(async (svc) => {
         // Try to find matching store record
         const record = recordsByServiceId.get(svc.id) || recordsByName.get(svc.name);
