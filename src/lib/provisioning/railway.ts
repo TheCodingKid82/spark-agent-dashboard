@@ -111,7 +111,12 @@ function generateClawdbotConfig(gatewayToken: string): string {
         }
       }
     },
-    agents: { defaults: { workspace: "/data/workspace" } },
+    agents: {
+      defaults: {
+        workspace: "/data/workspace",
+        heartbeat: { every: "1m" }
+      }
+    },
     wizard: { lastRunAt: "2026-01-01T00:00:00.000Z", lastRunCommand: "provision" }
   };
   return Buffer.from(JSON.stringify(config, null, 2)).toString('base64');
@@ -142,6 +147,68 @@ function generateIdentityMd(name: string, role: string, purpose: string): string
 - **Team:** Spark Studio Agent Fleet
 - **Manager:** Henry (COO Agent)
 - **Founder:** Andrew Weir
+`;
+  return Buffer.from(content).toString('base64');
+}
+
+function generateHeartbeatMd(name: string, agentId: string): string {
+  const content = `# HEARTBEAT.md - Task Management
+
+## On Every Heartbeat
+
+1. **Check your Kanban** for tasks:
+   \`\`\`
+   curl -s "https://command-center-production-3605.up.railway.app/api/tasks?assignee=${agentId}" | jq
+   \`\`\`
+
+2. **If you have an "in_progress" task:**
+   - Continue working on it
+   - Update status when done: POST to /api/tasks/{taskId} with {"status": "done"}
+
+3. **If no "in_progress" but have "todo" tasks:**
+   - Pick the highest priority one
+   - Update its status to "in_progress"
+   - Start working on it
+
+4. **If all tasks done:**
+   - Reply HEARTBEAT_OK
+
+## Task Status Updates
+
+To update a task:
+\`\`\`bash
+curl -X PATCH "https://command-center-production-3605.up.railway.app/api/tasks/{taskId}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"status": "in_progress"}'  # or "done" or "blocked"
+\`\`\`
+
+## Priority Order
+1. "in_progress" tasks (always finish these first)
+2. "todo" tasks with priority "urgent"
+3. "todo" tasks with priority "high"
+4. "todo" tasks with priority "normal"
+5. "todo" tasks with priority "low"
+
+## Remember
+- **Never leave a task half-done** without updating SESSION.md
+- **Update SESSION.md** with current progress before any memory compaction
+- **Report blockers** by setting task status to "blocked" with a note
+`;
+  return Buffer.from(content).toString('base64');
+}
+
+function generateSessionMd(name: string): string {
+  const content = `# SESSION.md - Working Memory
+
+## Current Task
+None yet. Check HEARTBEAT.md for task management instructions.
+
+## Last Activity
+Agent just initialized.
+
+## Notes
+- Update this file when starting/finishing tasks
+- This survives memory compaction - use it to track progress
 `;
   return Buffer.from(content).toString('base64');
 }
@@ -188,7 +255,7 @@ function generateSoulMd(name: string, role: string, purpose: string): string {
 
 function getStartCommand(): string {
   // This start command decodes base64 env vars into the correct file locations
-  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && node dist/index.js gateway --port 8080 --bind lan"`;
+  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && echo \\$HEARTBEAT_B64 | base64 -d > /data/workspace/HEARTBEAT.md && echo \\$SESSION_B64 | base64 -d > /data/workspace/SESSION.md && node dist/index.js gateway --port 8080 --bind lan"`;
 }
 
 // --- Core Provisioning ---
@@ -259,6 +326,8 @@ export async function provisionFullStack(
     const authProfilesB64 = generateAuthProfiles(config.setupToken);
     const identityB64 = generateIdentityMd(agentName, agentRole, agentPurpose);
     const soulB64 = generateSoulMd(agentName, agentRole, agentPurpose);
+    const heartbeatB64 = generateHeartbeatMd(agentName, serviceName);
+    const sessionB64 = generateSessionMd(agentName);
 
     // Step 4: Set environment variables (BEFORE triggering deploy)
     const envVars: Record<string, string> = {
@@ -274,10 +343,14 @@ export async function provisionFullStack(
       AUTH_PROFILES_B64: authProfilesB64,
       IDENTITY_B64: identityB64,
       SOUL_B64: soulB64,
+      HEARTBEAT_B64: heartbeatB64,
+      SESSION_B64: sessionB64,
       // Agent metadata
       AGENT_NAME: agentName,
       AGENT_ROLE: agentRole,
       AGENT_PURPOSE: agentPurpose,
+      // Command center for tasks
+      COMMAND_CENTER_URL: 'https://command-center-production-3605.up.railway.app',
       ...(extraVars || {}),
     };
 
