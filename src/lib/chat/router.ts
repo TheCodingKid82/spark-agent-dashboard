@@ -43,7 +43,6 @@ async function sendToGateway(
       body: JSON.stringify({
         model: 'clawdbot:main',
         input: formattedMessage,
-        session: sessionKey,
       }),
     });
 
