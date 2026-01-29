@@ -103,7 +103,12 @@ function generateClawdbotConfig(gatewayToken: string): string {
       mode: "local",
       trustedProxies: ["*"],
       controlUi: { allowInsecureAuth: true },
-      auth: { mode: "token", token: gatewayToken }
+      auth: { mode: "token", token: gatewayToken },
+      http: {
+        endpoints: {
+          responses: { enabled: true }
+        }
+      }
     },
     agents: { defaults: { workspace: "/data/workspace" } },
     wizard: { lastRunAt: "2026-01-01T00:00:00.000Z", lastRunCommand: "provision" }
