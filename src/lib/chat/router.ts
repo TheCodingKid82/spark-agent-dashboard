@@ -21,7 +21,9 @@ async function sendToGateway(
       ? `[Message from ${fromAgent}]: ${message}`
       : message;
 
-    const response = await fetch(`https://${agent.gatewayUrl}/api/chat`, {
+    // gatewayUrl already includes protocol (https://...)
+    const baseUrl = agent.gatewayUrl.startsWith('http') ? agent.gatewayUrl : `https://${agent.gatewayUrl}`;
+    const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
