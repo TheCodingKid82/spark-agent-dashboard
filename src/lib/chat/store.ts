@@ -32,6 +32,7 @@ async function initDb() {
         "from" TEXT NOT NULL,
         "to" TEXT NOT NULL,
         content TEXT NOT NULL,
+        type TEXT DEFAULT 'text',
         timestamp BIGINT NOT NULL,
         read BOOLEAN DEFAULT false
       );
@@ -71,8 +72,8 @@ export async function addMessage(msg: Omit<ChatMessage, 'id' | 'timestamp'>): Pr
   if (pool) {
     await initDb();
     await pool.query(
-      `INSERT INTO chat_messages (id, "from", "to", content, timestamp, read) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [message.id, message.from, message.to, message.content, message.timestamp, message.read]
+      `INSERT INTO chat_messages (id, "from", "to", content, type, timestamp, read) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [message.id, message.from, message.to, message.content, message.type || 'text', message.timestamp, message.read]
     );
   } else {
     memMessages.push(message);
@@ -112,6 +113,7 @@ export async function getMessages(
       from: row.from,
       to: row.to,
       content: row.content,
+      type: row.type || 'text',
       timestamp: parseInt(row.timestamp),
       read: row.read,
     })).reverse();
@@ -144,6 +146,7 @@ export async function getAllMessages(limit = 500): Promise<ChatMessage[]> {
       from: row.from,
       to: row.to,
       content: row.content,
+      type: row.type || 'text',
       timestamp: parseInt(row.timestamp),
       read: row.read,
     })).reverse();

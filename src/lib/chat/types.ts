@@ -31,12 +31,13 @@ export interface Conversation {
 export interface AgentInfo {
   id: string;
   name: string;
-  role: string;
-  purpose: string;
+  role?: string;
+  purpose?: string;
   gatewayUrl: string;
   gatewayToken: string;
-  status: 'online' | 'offline' | 'busy';
+  status?: 'online' | 'offline' | 'busy' | 'unknown';
   capabilities?: string[];
+  lastSeen?: number;
 }
 
 export interface TeamRoster {
