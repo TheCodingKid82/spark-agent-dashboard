@@ -22,7 +22,11 @@ import {
   Loader2,
   AlertCircle,
   Shield,
+  ListTodo,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import TaskBoard from "./tasks/TaskBoard";
 import type { Agent } from "@/types/agent";
 
 interface DetailPanelProps {
@@ -405,6 +409,11 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
               <p className="text-[9px] text-zinc-600">Last Active</p>
             </div>
           </div>
+        </div>
+
+        {/* Tasks Kanban */}
+        <div className="px-5 py-4 border-b border-zinc-800/30">
+          <TaskBoard agentId={agent.id} agentName={agent.name} />
         </div>
 
         {/* Recent Activity */}
