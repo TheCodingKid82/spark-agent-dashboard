@@ -154,7 +154,7 @@ function buildNodesAndEdges(
   return { nodes, edges };
 }
 
-// Core agents that always exist (you + Henry)
+// Core agents that always exist (founders + their assistants)
 const CORE_AGENTS: Agent[] = [
   {
     id: "andrew",
@@ -170,17 +170,43 @@ const CORE_AGENTS: Agent[] = [
     metrics: { tasksCompleted: 0, uptime: "100%", lastActive: new Date().toISOString() },
   },
   {
+    id: "cale",
+    name: "Cale",
+    role: "Co-founder",
+    emoji: "🚀",
+    status: "online",
+    purpose: "Co-founder focused on Funnels App development with Arthur.",
+    specialties: ["Funnels App", "Product Development", "Technical Strategy"],
+    parentId: null,
+    recentActivity: [],
+    communications: [],
+    metrics: { tasksCompleted: 0, uptime: "100%", lastActive: new Date().toISOString() },
+  },
+  {
     id: "henry",
     name: "Henry",
-    role: "COO / Executive Assistant",
+    role: "COO",
     emoji: "🎯",
     status: "online",
-    purpose: "Operations command center. Manages agents, coordinates tasks, handles Announcements app.",
-    specialties: ["Operations", "Coordination", "Announcements App", "Agent Management"],
+    purpose: "Operations command center. Manages agents, coordinates tasks, runs operations for Andrew.",
+    specialties: ["Operations", "Coordination", "Agent Management", "Strategy Execution"],
     parentId: "andrew",
     recentActivity: [],
     communications: [],
     metrics: { tasksCompleted: 0, uptime: "99.7%", lastActive: new Date().toISOString() },
+  },
+  {
+    id: "arthur",
+    name: "Arthur",
+    role: "Cale's Assistant",
+    emoji: "🤖",
+    status: "online",
+    purpose: "Cale's executive assistant. Supports Funnels App development, collaborates with Henry.",
+    specialties: ["Funnels App", "Development Support", "Coordination with Henry"],
+    parentId: "cale",
+    recentActivity: [],
+    communications: [],
+    metrics: { tasksCompleted: 0, uptime: "99.5%", lastActive: new Date().toISOString() },
   },
 ];
 
