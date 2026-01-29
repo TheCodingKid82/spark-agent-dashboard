@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getRecord, deleteRecord } from '@/lib/provisioning/store';
-import { getServiceStatus, deleteService } from '@/lib/provisioning/railway';
-import { checkAgentHealth } from '@/lib/provisioning/gateway-config';
 
 /**
- * GET /api/agents/:agentId — Get full agent details with live status
+ * GET /api/agents/:agentId — Get agent details
  */
 export async function GET(
   request: Request,
@@ -17,63 +15,22 @@ export async function GET(
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  // Get live Railway status
-  let liveStatus = 'UNKNOWN';
-  let liveDomain: string | undefined;
-  if (record.railwayServiceId) {
-    const railwayResult = await getServiceStatus(record.railwayServiceId);
-    if (railwayResult.success && railwayResult.data) {
-      liveStatus = railwayResult.data.status;
-      liveDomain = railwayResult.data.domain;
-    }
-  }
-
-  // Health check
-  let health: { healthy: boolean; status?: string; error?: string } = { healthy: false, error: 'Not deployed' };
-  if (record.gatewayUrl && record.gatewayToken) {
-    health = await checkAgentHealth(record.gatewayUrl, record.gatewayToken);
-  }
-
-  return NextResponse.json({
-    success: true,
-    agent: {
-      ...record,
-      liveStatus,
-      liveDomain,
-      health,
-    },
-  });
+  return NextResponse.json({ success: true, agent: record });
 }
 
 /**
- * DELETE /api/agents/:agentId — Delete an agent (service + record)
+ * DELETE /api/agents/:agentId — Remove agent from dashboard
  */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params;
-  const record = getRecord(agentId);
+  const deleted = deleteRecord(agentId);
 
-  if (!record) {
+  if (!deleted) {
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  // Delete Railway service if exists
-  if (record.railwayServiceId && !record.isMock) {
-    try {
-      await deleteService(record.railwayServiceId);
-    } catch (error) {
-      // Continue with record deletion even if Railway fails
-      console.error('Failed to delete Railway service:', error);
-    }
-  }
-
-  // Delete from store
-  deleteRecord(agentId);
-
-  return NextResponse.json({
-    success: true,
-    message: `Agent ${record.agentName} deleted`,
-  });
+  return NextResponse.json({ success: true, message: `Agent ${agentId} removed from dashboard` });
 }
