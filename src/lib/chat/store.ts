@@ -243,27 +243,114 @@ export async function registerAgent(agent: AgentInfo): Promise<void> {
   }
 }
 
+// Fetch agent from Railway if not in local store
+async function fetchAgentFromRailway(agentId: string): Promise<AgentInfo | undefined> {
+  const token = process.env.RAILWAY_API_TOKEN;
+  const projectId = process.env.RAILWAY_PROJECT_ID;
+  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID || '7ae32d1d-c474-450b-b7f5-6f16e5d875cd';
+  
+  if (!token || !projectId) return undefined;
+  
+  try {
+    // Find service by name
+    const servicesRes = await fetch('https://backboard.railway.com/graphql/v2', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        query: `query($projectId: String!) {
+          project(id: $projectId) {
+            services {
+              edges {
+                node {
+                  id
+                  name
+                  deployments(first: 1) {
+                    edges { node { staticUrl } }
+                  }
+                }
+              }
+            }
+          }
+        }`,
+        variables: { projectId },
+      }),
+    });
+    const servicesData = await servicesRes.json();
+    const services = servicesData?.data?.project?.services?.edges || [];
+    const service = services.find((s: any) => s.node.name.toLowerCase() === agentId.toLowerCase());
+    
+    if (!service) return undefined;
+    
+    // Get gateway token from env vars
+    const varsRes = await fetch('https://backboard.railway.com/graphql/v2', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        query: `query($projectId: String!, $serviceId: String!, $environmentId: String!) {
+          variables(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId)
+        }`,
+        variables: { projectId, serviceId: service.node.id, environmentId },
+      }),
+    });
+    const varsData = await varsRes.json();
+    const vars = varsData?.data?.variables || {};
+    
+    const gatewayToken = vars.CLAWDBOT_GATEWAY_TOKEN || vars.GATEWAY_TOKEN;
+    const domain = service.node.deployments?.edges?.[0]?.node?.staticUrl;
+    
+    if (!gatewayToken || !domain) return undefined;
+    
+    return {
+      id: agentId,
+      name: service.node.name.charAt(0).toUpperCase() + service.node.name.slice(1),
+      role: vars.AGENT_ROLE || 'Agent',
+      gatewayUrl: `https://${domain}`,
+      gatewayToken,
+      status: 'online',
+    };
+  } catch (err) {
+    console.error('[ChatStore] Railway fetch error:', err);
+    return undefined;
+  }
+}
+
 export async function getAgent(id: string): Promise<AgentInfo | undefined> {
+  // Try local store first
   if (pool) {
     await initDb();
     const result = await pool.query(
       `SELECT * FROM chat_agents WHERE id = $1`,
       [id]
     );
-    if (result.rows.length === 0) return undefined;
-    const row = result.rows[0];
-    return {
-      id: row.id,
-      name: row.name,
-      role: row.role,
-      gatewayUrl: row.gateway_url,
-      gatewayToken: row.gateway_token,
-      status: row.status,
-      lastSeen: row.last_seen ? parseInt(row.last_seen) : undefined,
-    };
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        gatewayUrl: row.gateway_url,
+        gatewayToken: row.gateway_token,
+        status: row.status,
+        lastSeen: row.last_seen ? parseInt(row.last_seen) : undefined,
+      };
+    }
+  } else if (memAgents.has(id)) {
+    return memAgents.get(id);
   }
   
-  return memAgents.get(id);
+  // Fall back to Railway
+  const agent = await fetchAgentFromRailway(id);
+  if (agent) {
+    // Register for future lookups
+    await registerAgent(agent);
+  }
+  return agent;
 }
 
 export async function getAllAgents(): Promise<AgentInfo[]> {
