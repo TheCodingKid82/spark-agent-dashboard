@@ -67,4 +67,5 @@ export interface SendMessageResponse {
   messageId?: string;
   error?: string;
   agentResponse?: string;  // If agent responds immediately
+  teamResponses?: { agent: string; response: string }[];  // Team chat responses
 }

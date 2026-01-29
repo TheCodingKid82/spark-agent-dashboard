@@ -125,18 +125,63 @@ export async function sendMessage(req: SendMessageRequest): Promise<SendMessageR
     };
   }
 
-  // Broadcast to all agents
+  // Broadcast to all agents (Team Chat)
   if (to === 'broadcast') {
     const agents = await store.getAllAgents();
-    const results = await Promise.all(
-      agents.map(agent => sendToGateway(agent, content, from))
-    );
     
-    const failures = results.filter(r => !r.success);
+    // Get recent team chat history for context
+    const recentMessages = await store.getBroadcastMessages(10);
+    
+    // Build conversation context
+    const agentNames = agents.map(a => a.name).join(', ');
+    let conversationHistory = '';
+    if (recentMessages.length > 1) {
+      // Skip the message we just added
+      const previousMessages = recentMessages.slice(0, -1).slice(-5);
+      if (previousMessages.length > 0) {
+        conversationHistory = '\n\n--- Recent Team Chat History ---\n' +
+          previousMessages.map(m => {
+            const senderName = m.from === 'andrew' ? 'Andrew' : 
+              agents.find(a => a.id === m.from)?.name || m.from;
+            return `${senderName}: ${m.content.slice(0, 200)}${m.content.length > 200 ? '...' : ''}`;
+          }).join('\n') +
+          '\n--- End History ---\n';
+      }
+    }
+    
+    // Format the team chat message
+    const senderName = from === 'andrew' ? 'Andrew (Co-founder)' : 
+      (agents.find(a => a.id === from)?.name || from);
+    
+    const teamChatMessage = `📢 TEAM CHAT (All Agents Present: ${agentNames})
+${conversationHistory}
+${senderName}: ${content}
+
+---
+This is a team chat. All agents can see this message and each other's replies. Respond naturally as you would in a group chat. Keep responses concise unless asked for details.`;
+    
+    // Send to all agents and collect responses
+    const responses: { agent: string; response: string }[] = [];
+    
+    for (const agent of agents) {
+      const result = await sendToGateway(agent, teamChatMessage);
+      if (result.success && result.response) {
+        responses.push({ agent: agent.name, response: result.response });
+        
+        // Store each agent's response as a broadcast message
+        await store.addMessage({
+          from: agent.id,
+          to: 'broadcast',
+          content: result.response,
+          type: 'text',
+        });
+      }
+    }
+    
     return {
-      success: failures.length === 0,
+      success: true,
       messageId: sentMessage.id,
-      error: failures.length > 0 ? `${failures.length} agents failed to receive` : undefined,
+      teamResponses: responses,
     };
   }
 

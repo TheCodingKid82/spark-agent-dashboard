@@ -176,7 +176,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
         };
         setMessages(prev => [...prev, newMsg]);
         
-        // If agent responded, add that too
+        // If agent responded (direct DM), add that too
         if (data.agentResponse) {
           const responseMsg: ChatMessage = {
             id: `resp-${Date.now()}`,
@@ -189,6 +189,28 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
           setTimeout(() => {
             setMessages(prev => [...prev, responseMsg]);
           }, 500);
+        }
+        
+        // If team chat responses, add each agent's response
+        if (data.teamResponses && data.teamResponses.length > 0) {
+          const agentIdByName = (name: string) => {
+            const agent = agents.find(a => a.name === name);
+            return agent?.id || name.toLowerCase();
+          };
+          
+          data.teamResponses.forEach((tr: { agent: string; response: string }, i: number) => {
+            const responseMsg: ChatMessage = {
+              id: `team-resp-${Date.now()}-${i}`,
+              timestamp: Date.now() + 100 + (i * 100),
+              from: agentIdByName(tr.agent),
+              to: 'broadcast',
+              content: tr.response,
+              type: 'text',
+            };
+            setTimeout(() => {
+              setMessages(prev => [...prev, responseMsg]);
+            }, 500 + (i * 300)); // Stagger responses
+          });
         }
       } else {
         alert('Failed to send: ' + (data.error || 'Unknown error'));
@@ -426,10 +448,12 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                           : 'bg-gray-800 text-gray-100'
                       }`}
                     >
-                      {viewMode === 'observer' && (
+                      {/* Show sender info in observer mode or team chat */}
+                      {(viewMode === 'observer' || selectedConv === 'team-chat') && msg.from !== currentUserId && (
                         <div className="text-xs opacity-70 mb-1 flex items-center gap-1">
                           <span>{getAgentEmoji(msg.from)}</span>
-                          {getAgentName(msg.from)} → {getAgentName(msg.to)}
+                          <span className="font-medium">{getAgentName(msg.from)}</span>
+                          {viewMode === 'observer' && <span>→ {getAgentName(msg.to)}</span>}
                         </div>
                       )}
                       <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
