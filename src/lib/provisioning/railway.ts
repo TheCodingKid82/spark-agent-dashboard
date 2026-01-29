@@ -27,6 +27,7 @@ interface ServiceInfo {
   gatewayToken: string;
   projectId: string;
   status: string;
+  browserDomain?: string;
 }
 
 // --- Config ---
@@ -321,7 +322,73 @@ export async function provisionFullStack(
 
     const domain = domainData.serviceDomainCreate.domain;
 
-    // Step 7: Trigger deployment (env vars are already set!)
+    // Step 7: Create browser service for this agent
+    let browserDomain = '';
+    try {
+      const browserServiceName = `${serviceName}-browser`;
+      
+      // Create browserless service
+      const browserCreateData = await railwayQuery(`
+        mutation($input: ServiceCreateInput!) {
+          serviceCreate(input: $input) { id name }
+        }
+      `, {
+        input: {
+          projectId: config.projectId,
+          name: browserServiceName,
+          source: { image: 'browserless/chrome' },
+        },
+      }) as { serviceCreate: { id: string; name: string } };
+
+      const browserServiceId = browserCreateData.serviceCreate.id;
+
+      // Set PORT for browserless
+      await railwayQuery(`
+        mutation($input: VariableCollectionUpsertInput!) {
+          variableCollectionUpsert(input: $input)
+        }
+      `, {
+        input: {
+          projectId: config.projectId,
+          serviceId: browserServiceId,
+          environmentId: config.environmentId,
+          variables: { PORT: '3000' },
+        },
+      });
+
+      // Create domain for browser service
+      const browserDomainData = await railwayQuery(`
+        mutation($input: ServiceDomainCreateInput!) {
+          serviceDomainCreate(input: $input) { domain }
+        }
+      `, {
+        input: {
+          serviceId: browserServiceId,
+          environmentId: config.environmentId,
+        },
+      }) as { serviceDomainCreate: { domain: string } };
+
+      browserDomain = browserDomainData.serviceDomainCreate.domain;
+
+      // Update agent with browser endpoint
+      await railwayQuery(`
+        mutation($input: VariableCollectionUpsertInput!) {
+          variableCollectionUpsert(input: $input)
+        }
+      `, {
+        input: {
+          projectId: config.projectId,
+          serviceId,
+          environmentId: config.environmentId,
+          variables: { BROWSER_WS_ENDPOINT: `wss://${browserDomain}` },
+        },
+      });
+    } catch (browserError) {
+      console.error('Browser service creation failed:', browserError);
+      // Continue without browser - agent will still work, just no browser
+    }
+
+    // Step 8: Trigger deployment (env vars are already set!)
     await railwayQuery(`
       mutation($serviceId: String!, $environmentId: String!) {
         serviceInstanceDeploy(serviceId: $serviceId, environmentId: $environmentId)
@@ -341,6 +408,7 @@ export async function provisionFullStack(
         gatewayToken,
         projectId: config.projectId!,
         status: 'DEPLOYING',
+        browserDomain,
       },
     };
   } catch (error) {
