@@ -155,6 +155,27 @@ export async function getAllMessages(limit = 500): Promise<ChatMessage[]> {
   return memMessages.slice(-limit);
 }
 
+export async function getBroadcastMessages(limit = 100): Promise<ChatMessage[]> {
+  if (pool) {
+    await initDb();
+    const result = await pool.query(
+      `SELECT * FROM chat_messages WHERE "to" = 'broadcast' ORDER BY timestamp DESC LIMIT $1`,
+      [limit]
+    );
+    return result.rows.map(row => ({
+      id: row.id,
+      from: row.from,
+      to: row.to,
+      content: row.content,
+      type: row.type || 'text',
+      timestamp: parseInt(row.timestamp),
+      read: row.read,
+    })).reverse();
+  }
+  
+  return memMessages.filter(m => m.to === 'broadcast').slice(-limit);
+}
+
 export async function getConversations(): Promise<Conversation[]> {
   const messages = await getAllMessages(5000);
   

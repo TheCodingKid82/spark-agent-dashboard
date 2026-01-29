@@ -6,6 +6,7 @@
  * - participant2: Optional - other participant (for specific conversation)
  * - limit: Optional - max messages (default 100)
  * - all: Optional - if 'true', get all messages (Andrew's observer view)
+ * - broadcast: Optional - if 'true', get broadcast/team chat messages
  */
 
 export const runtime = 'nodejs';
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all') === 'true';
+    const broadcast = searchParams.get('broadcast') === 'true';
     const participant1 = searchParams.get('participant1');
     const participant2 = searchParams.get('participant2');
     const limit = parseInt(searchParams.get('limit') || '100', 10);
@@ -28,9 +30,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ messages });
     }
 
+    if (broadcast) {
+      // Team chat - get all broadcast messages
+      const messages = await store.getBroadcastMessages(limit);
+      return NextResponse.json({ messages });
+    }
+
     if (!participant1) {
       return NextResponse.json(
-        { error: 'participant1 is required (or use all=true)' },
+        { error: 'participant1 is required (or use all=true or broadcast=true)' },
         { status: 400 }
       );
     }
