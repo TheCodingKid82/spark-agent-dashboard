@@ -14,6 +14,7 @@ async function sendToGateway(
   agent: AgentInfo,
   message: string,
   fromAgent?: string,
+  fromId?: string,
 ): Promise<{ success: boolean; response?: string; error?: string }> {
   try {
     // Format the message with sender context
@@ -24,6 +25,12 @@ async function sendToGateway(
     // gatewayUrl already includes protocol (https://...)
     const baseUrl = agent.gatewayUrl.startsWith('http') ? agent.gatewayUrl : `https://${agent.gatewayUrl}`;
     
+    // Create a consistent session key based on sender
+    // This ensures the same sender always gets the same session
+    const sessionKey = fromId 
+      ? `command-center:${fromId}:${agent.id}`
+      : `command-center:default:${agent.id}`;
+    
     // Use Clawdbot's OpenResponses API endpoint
     const response = await fetch(`${baseUrl}/v1/responses`, {
       method: 'POST',
@@ -31,10 +38,12 @@ async function sendToGateway(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${agent.gatewayToken}`,
         'x-clawdbot-agent-id': 'main',
+        'x-clawdbot-session-key': sessionKey,
       },
       body: JSON.stringify({
         model: 'clawdbot:main',
         input: formattedMessage,
+        session: sessionKey,
       }),
     });
 
@@ -95,7 +104,7 @@ export async function sendMessage(req: SendMessageRequest): Promise<SendMessageR
       fromName = 'Andrew (Founder)';
     }
 
-    const result = await sendToGateway(agent, content, fromName);
+    const result = await sendToGateway(agent, content, fromName, from);
     
     if (result.success && result.response) {
       // Store agent's response
@@ -170,7 +179,7 @@ TEAM CHAT RULES:
     const responses: { agent: string; response: string }[] = [];
     
     for (const agent of agents) {
-      const result = await sendToGateway(agent, teamChatMessage);
+      const result = await sendToGateway(agent, teamChatMessage, senderName, from);
       if (result.success && result.response) {
         // Skip "[no response needed]" or similar non-responses
         const response = result.response.trim();
