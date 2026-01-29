@@ -25,12 +25,11 @@ import AddAgentModal from "./AddAgentModal";
 import ChatPanel from "./chat/ChatPanel";
 import MeetingScheduler from "./chat/MeetingScheduler";
 import UpcomingMeetings from "./chat/UpcomingMeetings";
+import WhoAreYouModal, { getUserIdentity, type UserIdentity } from "./WhoAreYouModal";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
 };
-
-const CURRENT_USER_ID = "andrew";
 
 function getDmChatId(agentA: string, agentB: string): string {
   const sorted = [agentA, agentB].sort();
@@ -196,6 +195,13 @@ export default function Dashboard() {
   const [recentEdges, setRecentEdges] = useState<Set<string>>(new Set());
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<UserIdentity | null>(null);
+
+  // Check for existing identity on mount
+  useEffect(() => {
+    const existing = getUserIdentity();
+    if (existing) setCurrentUserId(existing);
+  }, []);
 
   // Fetch real agents from Railway on mount
   useEffect(() => {
@@ -270,7 +276,7 @@ export default function Dashboard() {
   // Open DM from agent node chat icon
   const handleChatClick = useCallback(
     (agentId: string) => {
-      const dmId = getDmChatId(CURRENT_USER_ID, agentId);
+      const dmId = getDmChatId(currentUserId || 'andrew', agentId);
       setInitialChatId(dmId);
       setShowChat(true);
     },
@@ -352,6 +358,11 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#0a0a0f] overflow-hidden">
+      {/* Identity selector modal */}
+      {!currentUserId && (
+        <WhoAreYouModal onSelect={(id) => setCurrentUserId(id)} />
+      )}
+      
       <TopBar
         agents={agents}
         onAddAgent={() => setShowAddModal(true)}
@@ -441,7 +452,7 @@ export default function Dashboard() {
         isOpen={showChat}
         onClose={handleCloseChat}
         initialChatId={initialChatId}
-        currentUserId={CURRENT_USER_ID}
+        currentUserId={currentUserId || 'andrew'}
       />
 
       {/* Meeting Scheduler */}
