@@ -98,8 +98,8 @@ function sanitizeServiceName(name: string): string {
 
 // --- Base64 File Generators ---
 
-function generateClawdbotConfig(gatewayToken: string): string {
-  const config = {
+function generateClawdbotConfig(gatewayToken: string, browserUrl?: string): string {
+  const config: Record<string, unknown> = {
     gateway: {
       mode: "local",
       trustedProxies: ["*"],
@@ -119,6 +119,20 @@ function generateClawdbotConfig(gatewayToken: string): string {
     },
     wizard: { lastRunAt: "2026-01-01T00:00:00.000Z", lastRunCommand: "provision" }
   };
+  
+  // Add browser config if URL provided
+  if (browserUrl) {
+    config.browser = {
+      enabled: true,
+      defaultProfile: "remote",
+      profiles: {
+        remote: {
+          cdpUrl: browserUrl
+        }
+      }
+    };
+  }
+  
   return Buffer.from(JSON.stringify(config, null, 2)).toString('base64');
 }
 
@@ -465,7 +479,10 @@ export async function provisionFullStack(
 
       browserDomain = browserDomainData.serviceDomainCreate.domain;
 
-      // Update agent with browser endpoint
+      // Update agent with browser endpoint AND regenerate config with browser URL
+      const browserUrl = `https://${browserDomain}`;
+      const updatedConfigB64 = generateClawdbotConfig(gatewayToken, browserUrl);
+      
       await railwayQuery(`
         mutation($input: VariableCollectionUpsertInput!) {
           variableCollectionUpsert(input: $input)
@@ -475,7 +492,10 @@ export async function provisionFullStack(
           projectId: config.projectId,
           serviceId,
           environmentId: config.environmentId,
-          variables: { BROWSER_WS_ENDPOINT: `wss://${browserDomain}` },
+          variables: { 
+            BROWSER_WS_ENDPOINT: `wss://${browserDomain}`,
+            CLAWDBOT_CONFIG_B64: updatedConfigB64,  // Update config with browser settings
+          },
         },
       });
     } catch (browserError) {
