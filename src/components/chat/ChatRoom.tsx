@@ -26,7 +26,10 @@ export default function ChatRoom({
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const shouldAutoScroll = useRef(true);
+  const justSentMessage = useRef(false);
 
   // Get chat display name
   const getChatName = () => {
@@ -71,9 +74,25 @@ export default function ChatRoom({
     return () => clearInterval(interval);
   }, [chat.id]);
 
-  // Auto-scroll
+  // Check if user is near bottom (within 150px)
+  const checkIfNearBottom = () => {
+    const container = containerRef.current;
+    if (!container) return true;
+    const threshold = 150;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  };
+
+  // Handle scroll events to track if user is at bottom
+  const handleScroll = () => {
+    shouldAutoScroll.current = checkIfNearBottom();
+  };
+
+  // Auto-scroll only if user is near bottom OR just sent a message
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScroll.current || justSentMessage.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      justSentMessage.current = false;
+    }
   }, [messages]);
 
   // Focus input on mount
@@ -86,6 +105,7 @@ export default function ChatRoom({
     const content = input.trim();
     setInput("");
     setSending(true);
+    justSentMessage.current = true; // Force scroll when sending
 
     try {
       const res = await fetch("/api/messages/send", {
@@ -158,7 +178,11 @@ export default function ChatRoom({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div 
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+      >
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 rounded-2xl bg-zinc-800/50 flex items-center justify-center mb-3">

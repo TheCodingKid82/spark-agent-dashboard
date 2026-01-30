@@ -39,6 +39,9 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   const [viewMode, setViewMode] = useState<'conversations' | 'observer'>('conversations');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScroll = useRef(true);
+  const justSentMessage = useRef(false);
 
   // Load data when panel opens
   useEffect(() => {
@@ -72,9 +75,25 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
     }
   }, [selectedConv, viewMode]);
 
-  // Scroll to bottom
+  // Check if user is near bottom (within 150px)
+  const checkIfNearBottom = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const threshold = 150;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  };
+
+  // Handle scroll events to track if user is at bottom
+  const handleScroll = () => {
+    shouldAutoScroll.current = checkIfNearBottom();
+  };
+
+  // Auto-scroll only if user is near bottom OR just sent a message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldAutoScroll.current || justSentMessage.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      justSentMessage.current = false;
+    }
   }, [messages]);
 
   async function loadConversations() {
@@ -129,6 +148,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
 
   async function sendMessage() {
     if (!newMessage.trim() || !selectedConv) return;
+    justSentMessage.current = true; // Force scroll when sending
     
     // Handle team chat (broadcast to all agents)
     const isTeamChat = selectedConv === 'team-chat';
@@ -424,7 +444,11 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div 
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 space-y-3"
+            >
               {loading && messages.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">Loading...</div>
               ) : messages.length === 0 ? (
