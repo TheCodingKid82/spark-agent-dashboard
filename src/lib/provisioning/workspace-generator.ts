@@ -189,16 +189,41 @@ export function generateAgentsMd(config: AgentConfig): string {
   return `# AGENTS.md - Your Workspace
 
 ## Every Session
-1. Read SESSION.md — your working memory
-2. Read SOUL.md — who you are
-3. Read USER.md — who you're helping
-4. Read AGENT_DIRECTORY.md — your teammates
-5. Check memory/ for active project context
+1. **FIRST: Pull from Supermemory** — run \`supermemory_profile\` to get your recent context
+2. Read SESSION.md — your working memory
+3. Read SOUL.md — who you are
+4. Read USER.md — who you're helping
+5. Read AGENT_DIRECTORY.md — your teammates
+6. Check memory/ for active project context
 
-## Memory
+**After memory compaction:** Always run \`supermemory_search\` with a query about what you were working on to restore context.
+
+## Memory Persistence (CRITICAL)
+
+You have short-term memory that gets compacted. **Supermemory is your long-term brain.**
+
+### When to PUSH to Supermemory (\`supermemory_store\`)
+- After completing a significant task
+- When you learn something important about Andrew's preferences
+- When you make a decision that should be remembered
+- Before ending a conversation/session
+- When waiting for user response after doing work
+
+### When to PULL from Supermemory (\`supermemory_search\` / \`supermemory_profile\`)
+- **At session start** — always check your profile first
+- **After memory compaction** — search for what you were just doing
+- When asked about something that might have prior context
+- When you need to remember a past decision or preference
+
+### Memory Format
+When storing, be specific:
+- ❌ "Worked on the app" 
+- ✅ "${config.agentName} fixed the payment modal bug in announcements-whop-app, deployed to Railway"
+
+## Local Memory
 - **SESSION.md** — working memory, update at end of every session
 - **memory/*.md** — daily logs and project context
-- **MEMORY.md** — long-term curated memory
+- **MEMORY.md** — long-term curated memory (also push important stuff to Supermemory!)
 
 ## Safety
 - Don't exfiltrate private data
@@ -266,6 +291,25 @@ export function generateToolsMd(config: AgentConfig): string {
 
   return `# TOOLS.md - Local Notes
 
+## Supermemory (Long-Term Memory)
+
+**You have access to Supermemory for persistent memory across sessions.**
+
+### Available Tools:
+- \`supermemory_store\` — Save important info (decisions, completed tasks, preferences)
+- \`supermemory_search\` — Search for relevant memories
+- \`supermemory_profile\` — Get summary of what's known about you/user
+- \`supermemory_forget\` — Remove outdated memories
+
+### Usage Patterns:
+1. **Session start:** Run \`supermemory_profile\` to get context
+2. **After compaction:** Run \`supermemory_search\` for "last task" or recent work
+3. **After completing work:** Run \`supermemory_store\` with a summary
+4. **Before long pauses:** Store what you're waiting on
+
+### Memory Tags:
+Your memories are tagged with your name (${config.agentName}) so you can find agent-specific context.
+
 ## My Resources
 ${tools.length > 0 ? tools.map(t => `- ${t}`).join('\n') : '- (none configured yet)'}
 
@@ -290,15 +334,24 @@ export function generateHeartbeatMd(config: AgentConfig): string {
 
 ## Role: ${config.agentRole}
 
+## FIRST: Memory Check
+Before doing anything else in a heartbeat:
+1. Run \`supermemory_profile\` to check for recent context
+2. If you just came back from compaction, run \`supermemory_search\` with "last task" or similar
+
 ## Every Heartbeat Checklist
 ${tasks.map((t, i) => `- [ ] ${t}`).join('\n')}
+
+## Memory Maintenance
+- [ ] If you completed work since last heartbeat → \`supermemory_store\` a summary
+- [ ] Update SESSION.md with current status
 
 ## Report To
 - Henry (manager agent) — status updates, blockers, completed work
 - Andrew (founder) — only urgent/critical items
 
 ## When to reach out:
-- Task completed → report to Henry
+- Task completed → report to Henry + store in Supermemory
 - Blocked on something → ask Henry for help
 - Something urgent/broken → alert Andrew
 - Nothing new → HEARTBEAT_OK
