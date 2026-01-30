@@ -63,17 +63,22 @@ export async function GET() {
         // Try to find matching store record
         const record = recordsByServiceId.get(svc.id) || recordsByName.get(svc.name);
         
-        // If no token in store, fetch from Railway env vars
+        // Get values from store
         let gatewayToken = record?.gatewayToken;
         let agentName = record?.agentName;
-        let agentRole = record?.agentRole || record?.roleTemplate;
+        let agentRole = record?.agentRole;
         let agentPurpose = record?.agentPurpose;
         
-        if (!gatewayToken || !agentName) {
+        // Fetch from Railway env vars if missing critical fields or role is 'custom'
+        const needsEnvVars = !gatewayToken || !agentName || !agentRole || agentRole === 'custom';
+        if (needsEnvVars) {
           const envVars = await getServiceEnvVars(svc.id);
           gatewayToken = gatewayToken || envVars.CLAWDBOT_GATEWAY_TOKEN;
           agentName = agentName || envVars.AGENT_NAME || svc.name.charAt(0).toUpperCase() + svc.name.slice(1);
-          agentRole = agentRole || envVars.AGENT_ROLE;
+          // Prefer env var role over 'custom'
+          if (!agentRole || agentRole === 'custom') {
+            agentRole = envVars.AGENT_ROLE || record?.roleTemplate;
+          }
           agentPurpose = agentPurpose || envVars.AGENT_PURPOSE;
         }
         
