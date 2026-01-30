@@ -176,11 +176,18 @@ TEAM CHAT RULES:
 - Keep responses concise. This is chat, not a report.
 - React naturally like you would in a real team Slack channel.`;
     
-    // Send to all agents and collect responses
+    // Send to all agents IN PARALLEL - no delays between agents
     const responses: { agent: string; response: string }[] = [];
     
-    for (const agent of agents) {
-      const result = await sendToGateway(agent, teamChatMessage, senderName, from);
+    const agentResults = await Promise.all(
+      agents.map(async (agent) => {
+        const result = await sendToGateway(agent, teamChatMessage, senderName, from);
+        return { agent, result };
+      })
+    );
+    
+    // Process responses and store them
+    for (const { agent, result } of agentResults) {
       if (result.success && result.response) {
         // Skip "[no response needed]" or similar non-responses
         const response = result.response.trim();
