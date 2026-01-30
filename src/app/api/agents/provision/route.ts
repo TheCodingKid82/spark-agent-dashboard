@@ -47,6 +47,9 @@ export async function POST(request: Request) {
     const record: ProvisioningRecord = {
       agentId,
       agentName,
+      agentRole,
+      agentPurpose,
+      roleTemplate: roleTemplate || 'custom',
       status: 'provisioning',
       provisionedAt: new Date().toISOString(),
     };
@@ -268,7 +271,6 @@ export async function POST(request: Request) {
     // === Finalize ===
     record.status = hasErrors ? 'partial' : 'complete';
     record.lastHealthCheck = record.lastHealthCheck || new Date().toISOString();
-    record.roleTemplate = roleTemplate;
     upsertRecord(record);
 
     return NextResponse.json({
