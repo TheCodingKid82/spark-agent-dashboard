@@ -351,6 +351,8 @@ export async function provisionFullStack(
       AGENT_PURPOSE: agentPurpose,
       // Command center for tasks
       COMMAND_CENTER_URL: 'https://command-center-production-3605.up.railway.app',
+      // Supermemory for long-term memory (shared across agents with agent-specific tags)
+      SUPERMEMORY_CLAWDBOT_API_KEY: process.env.SUPERMEMORY_CLAWDBOT_API_KEY || '',
       ...(extraVars || {}),
     };
 
