@@ -127,6 +127,7 @@ function generateClawdbotConfig(gatewayToken: string, browserUrl?: string): stri
       defaultProfile: "remote",
       profiles: {
         remote: {
+          color: "#00AA00",
           cdpUrl: browserUrl
         }
       }
