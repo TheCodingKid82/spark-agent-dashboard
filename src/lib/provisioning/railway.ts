@@ -331,8 +331,9 @@ fi
 
 function getStartCommand(): string {
   // This start command decodes base64 env vars into the correct file locations
+  // IMPORTANT: rm -f removes any existing config to prevent schema conflicts with new clawdbot versions
   // Includes TOOLS.md and browserless-screenshot.sh for browser workaround
-  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && echo \\$HEARTBEAT_B64 | base64 -d > /data/workspace/HEARTBEAT.md && echo \\$SESSION_B64 | base64 -d > /data/workspace/SESSION.md && echo \\$TOOLS_B64 | base64 -d > /data/workspace/TOOLS.md && echo \\$SCREENSHOT_B64 | base64 -d > /data/workspace/browserless-screenshot.sh && chmod +x /data/workspace/browserless-screenshot.sh && node dist/index.js gateway --port 8080 --bind lan"`;
+  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && rm -f /data/.clawdbot/clawdbot.json && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && echo \\$HEARTBEAT_B64 | base64 -d > /data/workspace/HEARTBEAT.md && echo \\$SESSION_B64 | base64 -d > /data/workspace/SESSION.md && echo \\$TOOLS_B64 | base64 -d > /data/workspace/TOOLS.md && echo \\$SCREENSHOT_B64 | base64 -d > /data/workspace/browserless-screenshot.sh && chmod +x /data/workspace/browserless-screenshot.sh && node dist/index.js gateway --port 8080 --bind lan"`;
 }
 
 // --- Core Provisioning ---

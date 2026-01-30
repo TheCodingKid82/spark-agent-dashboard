@@ -26,25 +26,23 @@ async function sendToGateway(
     const baseUrl = agent.gatewayUrl.startsWith('http') ? agent.gatewayUrl : `https://${agent.gatewayUrl}`;
     
     // Create a consistent session key based on sender
-    // This ensures the same sender always gets the same session
     const sessionKey = fromId 
       ? `command-center:${fromId}:${agent.id}`
       : `command-center:default:${agent.id}`;
     
-    // Use Clawdbot's OpenResponses API endpoint
-    // The 'user' field creates stable sessions - use sessionKey as the user identifier
-    const response = await fetch(`${baseUrl}/v1/responses`, {
+    // Use OpenAI-compatible chat completions endpoint
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${agent.gatewayToken}`,
-        'x-clawdbot-agent-id': 'main',
-        'x-clawdbot-session-key': sessionKey,
       },
       body: JSON.stringify({
-        model: 'clawdbot:main',
-        input: formattedMessage,
-        user: sessionKey, // This creates stable session routing per sender+agent pair
+        model: 'anthropic/claude-opus-4-5',
+        messages: [
+          { role: 'user', content: formattedMessage }
+        ],
+        user: sessionKey,
       }),
     });
 
@@ -55,18 +53,10 @@ async function sendToGateway(
 
     const data = await response.json();
     
-    // Extract text from OpenResponses format
+    // Extract text from chat completions format
     let responseText = '';
-    if (data.output && Array.isArray(data.output)) {
-      for (const item of data.output) {
-        if (item.type === 'message' && item.content) {
-          for (const content of item.content) {
-            if (content.type === 'output_text') {
-              responseText += content.text;
-            }
-          }
-        }
-      }
+    if (data.choices && data.choices.length > 0) {
+      responseText = data.choices[0].message?.content || '';
     }
     
     return { success: true, response: responseText || 'No response' };
