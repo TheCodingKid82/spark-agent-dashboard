@@ -266,11 +266,73 @@ function generateSoulMd(name: string, role: string, purpose: string): string {
   return Buffer.from(content).toString('base64');
 }
 
+// --- Browser Screenshot Workaround ---
+
+function generateToolsMd(agentName: string): string {
+  const content = `# TOOLS.md - ${agentName} Browser Guide
+
+## Screenshots (WORKAROUND)
+
+The built-in browser tool has issues with remote CDP. Use this workaround instead:
+
+### Take a Screenshot
+\`\`\`bash
+/data/workspace/browserless-screenshot.sh <url> [output_path]
+\`\`\`
+
+Examples:
+\`\`\`bash
+# Screenshot example.com
+/data/workspace/browserless-screenshot.sh https://example.com /data/workspace/screenshot.png
+
+# Screenshot with auto-generated filename  
+/data/workspace/browserless-screenshot.sh https://whop.com
+\`\`\`
+
+## Page Content
+For text content, use web_fetch tool instead of browser.
+`;
+  return Buffer.from(content).toString('base64');
+}
+
+function generateScreenshotScript(agentName: string): string {
+  const serviceName = sanitizeServiceName(agentName);
+  const browserHost = `${serviceName}-browser.railway.internal:9222`;
+  
+  const script = `#!/bin/bash
+# browserless-screenshot.sh - Take screenshots via browserless HTTP API
+# Usage: ./browserless-screenshot.sh <url> [output_path]
+
+URL="\${1:-https://example.com}"
+OUTPUT="\${2:-/data/workspace/screenshot-$(date +%s).png}"
+
+# Browser service for this agent
+BROWSER_HOST="${browserHost}"
+
+# URL encode the JSON body
+JSON="{\\"url\\":\\"\$URL\\"}"
+ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('\$JSON'))")
+
+curl -sS "http://\$BROWSER_HOST/screenshot?body=\$ENCODED" -o "\$OUTPUT"
+
+if file "\$OUTPUT" | grep -q "PNG image"; then
+    echo "SUCCESS: Screenshot saved to \$OUTPUT"
+    ls -la "\$OUTPUT"
+else
+    echo "ERROR: Screenshot failed"
+    cat "\$OUTPUT"
+    exit 1
+fi
+`;
+  return Buffer.from(script).toString('base64');
+}
+
 // --- Start Command ---
 
 function getStartCommand(): string {
   // This start command decodes base64 env vars into the correct file locations
-  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && echo \\$HEARTBEAT_B64 | base64 -d > /data/workspace/HEARTBEAT.md && echo \\$SESSION_B64 | base64 -d > /data/workspace/SESSION.md && node dist/index.js gateway --port 8080 --bind lan"`;
+  // Includes TOOLS.md and browserless-screenshot.sh for browser workaround
+  return `sh -c "mkdir -p ~/.claude /data/.clawdbot/agents/main/agent /data/workspace && echo \\$CLAWDBOT_CONFIG_B64 | base64 -d > /data/.clawdbot/clawdbot.json && echo \\$AUTH_PROFILES_B64 | base64 -d > /data/.clawdbot/agents/main/agent/auth-profiles.json && echo \\$IDENTITY_B64 | base64 -d > /data/workspace/IDENTITY.md && echo \\$SOUL_B64 | base64 -d > /data/workspace/SOUL.md && echo \\$HEARTBEAT_B64 | base64 -d > /data/workspace/HEARTBEAT.md && echo \\$SESSION_B64 | base64 -d > /data/workspace/SESSION.md && echo \\$TOOLS_B64 | base64 -d > /data/workspace/TOOLS.md && echo \\$SCREENSHOT_B64 | base64 -d > /data/workspace/browserless-screenshot.sh && chmod +x /data/workspace/browserless-screenshot.sh && node dist/index.js gateway --port 8080 --bind lan"`;
 }
 
 // --- Core Provisioning ---
@@ -343,6 +405,8 @@ export async function provisionFullStack(
     const soulB64 = generateSoulMd(agentName, agentRole, agentPurpose);
     const heartbeatB64 = generateHeartbeatMd(agentName, serviceName);
     const sessionB64 = generateSessionMd(agentName);
+    const toolsB64 = generateToolsMd(agentName);
+    const screenshotB64 = generateScreenshotScript(agentName);
 
     // Step 4: Set environment variables (BEFORE triggering deploy)
     const envVars: Record<string, string> = {
@@ -360,6 +424,8 @@ export async function provisionFullStack(
       SOUL_B64: soulB64,
       HEARTBEAT_B64: heartbeatB64,
       SESSION_B64: sessionB64,
+      TOOLS_B64: toolsB64,
+      SCREENSHOT_B64: screenshotB64,
       // Agent metadata
       AGENT_NAME: agentName,
       AGENT_ROLE: agentRole,
