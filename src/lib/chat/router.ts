@@ -32,6 +32,7 @@ async function sendToGateway(
       : `command-center:default:${agent.id}`;
     
     // Use Clawdbot's OpenResponses API endpoint
+    // The 'user' field creates stable sessions - use sessionKey as the user identifier
     const response = await fetch(`${baseUrl}/v1/responses`, {
       method: 'POST',
       headers: {
@@ -43,6 +44,7 @@ async function sendToGateway(
       body: JSON.stringify({
         model: 'clawdbot:main',
         input: formattedMessage,
+        user: sessionKey, // This creates stable session routing per sender+agent pair
       }),
     });
 

@@ -109,18 +109,20 @@ export async function POST(
     }
 
     // Send message to the agent's gateway using the OpenResponses API
+    // Use sessionKey for stable session routing - defaults to agent-specific if not provided
+    const effectiveSessionKey = sessionKey || `dashboard:default:${agentId}`;
     const agentRes = await fetch(`${gatewayUrl}/v1/responses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${gatewayToken}`,
         'x-clawdbot-agent-id': 'main',
-        ...(sessionKey ? { 'x-clawdbot-session-key': sessionKey } : {}),
+        'x-clawdbot-session-key': effectiveSessionKey,
       },
       body: JSON.stringify({
         model: 'clawdbot',
         input: message,
-        user: 'dashboard', // Use stable session key
+        user: effectiveSessionKey, // Creates stable session routing
       }),
     });
 
