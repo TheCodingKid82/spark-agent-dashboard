@@ -310,11 +310,15 @@ export default function Dashboard() {
                 },
               };
             });
+            // Filter out hidden services (like moltbot-railway-template)
+            const hiddenServices = ['moltbot-railway-template', 'moltbot_railway_template'];
+            const visibleAgents = railwayAgents.filter(a => !hiddenServices.includes(a.id.toLowerCase()));
+            
             // Merge core agents with Railway agents (avoid duplicates)
-            const railwayIds = new Set(railwayAgents.map(a => a.id));
+            const railwayIds = new Set(visibleAgents.map(a => a.id));
             const merged = [
               ...CORE_AGENTS.filter(a => !railwayIds.has(a.id)),
-              ...railwayAgents,
+              ...visibleAgents,
             ];
             setAgents(merged);
           }
