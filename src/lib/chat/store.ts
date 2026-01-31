@@ -202,12 +202,15 @@ export async function getConversations(): Promise<Conversation[]> {
   
   const convMap = new Map<string, Conversation>();
   
-  // Exclude broadcast/group messages from DM conversations
-  const excludeParticipants = ['broadcast', 'group'];
+  // Valid participant IDs (agents + humans)
+  const validParticipants = [
+    'andrew', 'cale', 'henry', 'arthur',
+    'atlas', 'apollo', 'artemis', 'maia', 'orpheus', 'callisto', 'iris'
+  ];
   
   for (const msg of messages) {
-    // Skip if either participant is broadcast or group
-    if (excludeParticipants.includes(msg.from) || excludeParticipants.includes(msg.to)) {
+    // Skip if either participant is not a valid ID (filters broadcast, group, and malformed IDs)
+    if (!validParticipants.includes(msg.from) || !validParticipants.includes(msg.to)) {
       continue;
     }
     
