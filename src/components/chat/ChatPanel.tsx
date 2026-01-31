@@ -140,6 +140,10 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
       } else if (selectedConv === 'team-chat') {
         // Load all broadcast messages
         url += 'broadcast=true&limit=100';
+      } else if (selectedConv?.startsWith('group-')) {
+        // Group chat - load messages to/from "group" involving these agents
+        // For now, use broadcast-style loading since group messages use to:"group"
+        url += 'group=true&limit=100';
       } else if (selectedConv) {
         // Handle both formats: "dm-andrew-atlas" and "andrew:atlas"
         let parts: string[];

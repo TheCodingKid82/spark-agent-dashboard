@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ messages });
     }
 
+    const group = searchParams.get('group') === 'true';
+    if (group) {
+      // Group chat messages (to: "group")
+      const messages = await store.getGroupChatMessages(limit);
+      return NextResponse.json({ messages });
+    }
+
     if (!participant1) {
       return NextResponse.json(
         { error: 'participant1 is required (or use all=true or broadcast=true)' },
