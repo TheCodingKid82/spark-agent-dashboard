@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Send, Eye, MessageCircle } from 'lucide-react';
+import { X, Send, Eye, MessageCircle, Users, Plus, Check } from 'lucide-react';
 import type { Agent } from '@/types/agent';
 
 interface ChatMessage {
@@ -38,6 +38,9 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   const [sending, setSending] = useState(false);
   const [viewMode, setViewMode] = useState<'conversations' | 'observer'>('conversations');
   const [loading, setLoading] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedAgentsForGroup, setSelectedAgentsForGroup] = useState<string[]>([]);
+  const [groupChats, setGroupChats] = useState<{id: string; name: string; agents: string[]}[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
@@ -152,11 +155,18 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
     
     // Handle team chat (broadcast to all agents)
     const isTeamChat = selectedConv === 'team-chat';
+    const isGroup = selectedConv.startsWith('group-');
     
     // Extract recipient from conversation ID
     let recipient: string;
+    let groupRecipients: string[] = [];
+    
     if (isTeamChat) {
       recipient = 'broadcast';
+    } else if (isGroup) {
+      // Group chat - send to specific agents
+      groupRecipients = selectedConv.replace('group-', '').split('-');
+      recipient = 'group';
     } else {
       // Handle both formats: "dm-andrew-atlas" and "andrew:atlas"
       let parts: string[];
@@ -179,6 +189,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
           from: currentUserId,
           to: recipient,
           content: newMessage,
+          groupAgents: groupRecipients.length > 0 ? groupRecipients : undefined,
         }),
       });
       
@@ -211,7 +222,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
           }, 500);
         }
         
-        // If team chat responses, add each agent's response
+        // If team chat or group chat responses, add each agent's response
         if (data.teamResponses && data.teamResponses.length > 0) {
           const agentIdByName = (name: string) => {
             const agent = agents.find(a => a.name === name);
@@ -223,7 +234,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
               id: `team-resp-${Date.now()}-${i}`,
               timestamp: Date.now() + 100 + (i * 100),
               from: agentIdByName(tr.agent),
-              to: 'broadcast',
+              to: isGroup ? 'group' : 'broadcast',
               content: tr.response,
               type: 'text',
             };
@@ -268,6 +279,41 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
     setSelectedConv(`dm-${parts[0]}-${parts[1]}`);
     setViewMode('conversations');
   }
+
+  function toggleAgentForGroup(agentId: string) {
+    setSelectedAgentsForGroup(prev => 
+      prev.includes(agentId) 
+        ? prev.filter(id => id !== agentId)
+        : [...prev, agentId]
+    );
+  }
+
+  function createGroupChat() {
+    if (selectedAgentsForGroup.length < 2) {
+      alert('Select at least 2 agents for a group chat');
+      return;
+    }
+    const sortedAgents = [...selectedAgentsForGroup].sort();
+    const groupId = `group-${sortedAgents.join('-')}`;
+    const groupName = sortedAgents.map(id => {
+      const agent = agents.find(a => a.id === id);
+      return agent?.name || id;
+    }).join(', ');
+    
+    // Add to local group chats if not exists
+    if (!groupChats.find(g => g.id === groupId)) {
+      setGroupChats(prev => [...prev, { id: groupId, name: groupName, agents: sortedAgents }]);
+    }
+    
+    setSelectedConv(groupId);
+    setShowGroupModal(false);
+    setSelectedAgentsForGroup([]);
+    setViewMode('conversations');
+  }
+
+  // Check if current conversation is a group chat
+  const isGroupChat = selectedConv?.startsWith('group-');
+  const groupAgents = isGroupChat ? selectedConv.replace('group-', '').split('-') : [];
 
   if (!isOpen) return null;
 
@@ -338,7 +384,40 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                   <div className="text-xs opacity-70">Message all agents at once</div>
                 </div>
               </button>
+              
+              {/* Create Group Button */}
+              <button
+                onClick={() => setShowGroupModal(true)}
+                className="w-full mt-2 px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 border border-gray-700"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="font-medium">Create Group Chat</span>
+              </button>
             </div>
+            
+            {/* Group Chats */}
+            {groupChats.length > 0 && (
+              <div className="p-3 border-b border-gray-800">
+                <div className="text-xs text-gray-500 mb-2">Group chats:</div>
+                {groupChats.map(group => (
+                  <button
+                    key={group.id}
+                    onClick={() => { setSelectedConv(group.id); setViewMode('conversations'); }}
+                    className={`w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors mb-1 ${
+                      selectedConv === group.id
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <div className="text-left flex-1 min-w-0">
+                      <div className="font-medium truncate">{group.name}</div>
+                      <div className="text-xs opacity-70">{group.agents.length} agents</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Agent Quick Start */}
             <div className="p-3 border-b border-gray-800">
@@ -422,6 +501,11 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                     <span>🏛️</span>
                     Team Chat - All Agents
                   </>
+                ) : isGroupChat ? (
+                  <>
+                    <Users className="w-4 h-4 text-purple-400" />
+                    Group: {groupAgents.map(id => getAgentName(id)).join(', ')}
+                  </>
                 ) : selectedRecipient ? (
                   <>
                     <span>{getAgentEmoji(selectedRecipient)}</span>
@@ -439,6 +523,11 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
               {selectedConv === 'team-chat' && (
                 <p className="text-xs text-gray-500 mt-0.5">
                   Your message will be sent to all agents simultaneously
+                </p>
+              )}
+              {isGroupChat && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Your message will be sent to {groupAgents.length} selected agents
                 </p>
               )}
             </div>
@@ -490,7 +579,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
             </div>
 
             {/* Input */}
-            {viewMode === 'conversations' && (selectedRecipient || selectedConv === 'team-chat') && (
+            {viewMode === 'conversations' && (selectedRecipient || selectedConv === 'team-chat' || isGroupChat) && (
               <div className="p-4 border-t border-gray-800 bg-[#12121a]">
                 <div className="flex gap-3">
                   <input
@@ -498,14 +587,20 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                    placeholder={selectedConv === 'team-chat' ? 'Message all agents...' : `Message ${getAgentName(selectedRecipient || '')}...`}
+                    placeholder={
+                      selectedConv === 'team-chat' 
+                        ? 'Message all agents...' 
+                        : isGroupChat 
+                          ? `Message ${groupAgents.length} agents...`
+                          : `Message ${getAgentName(selectedRecipient || '')}...`
+                    }
                     className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                     disabled={sending}
                   />
                   <button
                     onClick={sendMessage}
                     disabled={sending || !newMessage.trim()}
-                    className={`px-4 py-2.5 ${selectedConv === 'team-chat' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500' : 'bg-indigo-600 hover:bg-indigo-500'} disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl flex items-center gap-2 transition-colors`}
+                    className={`px-4 py-2.5 ${(selectedConv === 'team-chat' || isGroupChat) ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500' : 'bg-indigo-600 hover:bg-indigo-500'} disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-xl flex items-center gap-2 transition-colors`}
                   >
                     <Send className="w-4 h-4" />
                     {sending ? 'Sending...' : 'Send'}
@@ -516,6 +611,63 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
           </div>
         </div>
       </div>
+      
+      {/* Create Group Modal */}
+      {showGroupModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-[400px] bg-[#12121a] rounded-xl shadow-2xl border border-gray-800 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+              <h3 className="font-semibold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-400" />
+                Create Group Chat
+              </h3>
+              <button onClick={() => { setShowGroupModal(false); setSelectedAgentsForGroup([]); }} className="p-1 hover:bg-gray-800 rounded">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <p className="text-sm text-gray-400 mb-3">Select agents to include in the group:</p>
+              
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {agents.filter(a => a.id !== currentUserId).map(agent => (
+                  <button
+                    key={agent.id}
+                    onClick={() => toggleAgentForGroup(agent.id)}
+                    className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${
+                      selectedAgentsForGroup.includes(agent.id)
+                        ? 'bg-purple-600/30 border border-purple-500'
+                        : 'bg-gray-800/50 border border-gray-700 hover:bg-gray-800'
+                    }`}
+                  >
+                    <span className="text-lg">{agent.emoji}</span>
+                    <div className="flex-1 text-left">
+                      <div className="text-sm font-medium text-white">{agent.name}</div>
+                      <div className="text-xs text-gray-500">{agent.role}</div>
+                    </div>
+                    {selectedAgentsForGroup.includes(agent.id) && (
+                      <Check className="w-5 h-5 text-purple-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                  {selectedAgentsForGroup.length} agent{selectedAgentsForGroup.length !== 1 ? 's' : ''} selected
+                </span>
+                <button
+                  onClick={createGroupChat}
+                  disabled={selectedAgentsForGroup.length < 2}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Create Group
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

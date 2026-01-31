@@ -60,6 +60,7 @@ export interface SendMessageRequest {
   content: string;
   type?: ChatMessage['type'];
   priority?: 'low' | 'normal' | 'high' | 'urgent';
+  groupAgents?: string[];  // For group chats - specific agents to message
 }
 
 export interface SendMessageResponse {

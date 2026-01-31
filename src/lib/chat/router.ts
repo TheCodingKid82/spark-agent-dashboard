@@ -68,7 +68,7 @@ async function sendToGateway(
 // --- Message Routing ---
 
 export async function sendMessage(req: SendMessageRequest): Promise<SendMessageResponse> {
-  const { from, to, content, type = 'text', priority = 'normal' } = req;
+  const { from, to, content, type = 'text', priority = 'normal', groupAgents } = req;
 
   // Store the outgoing message
   const sentMessage = await store.addMessage({
@@ -195,6 +195,72 @@ TEAM CHAT RULES:
             to: 'broadcast',
             content: response,
             type: 'text',
+          });
+        }
+      }
+    }
+    
+    return {
+      success: true,
+      messageId: sentMessage.id,
+      teamResponses: responses,
+    };
+  }
+
+  // Group chat - send to specific agents
+  if (to === 'group' && groupAgents && groupAgents.length > 0) {
+    const allAgents = await store.getAllAgents();
+    const targetAgents = allAgents.filter(a => groupAgents.includes(a.id));
+    
+    if (targetAgents.length === 0) {
+      return { success: false, error: 'No valid agents in group' };
+    }
+    
+    // Format the group chat message
+    const senderName = from === 'andrew' ? 'Andrew (Co-founder)' : 
+      (allAgents.find(a => a.id === from)?.name || from);
+    const groupNames = targetAgents.map(a => a.name).join(', ');
+    
+    const groupChatMessage = `💬 GROUP CHAT (Participants: ${groupNames}, ${senderName})
+
+${senderName}: ${content}
+
+---
+GROUP CHAT RULES:
+- This is a private group chat with selected agents only.
+- Respond if you're addressed or have relevant input.
+- If the message doesn't need your input, reply with: [no response needed]
+- Keep responses concise and relevant to the discussion.`;
+    
+    // Send to group agents IN PARALLEL
+    const responses: { agent: string; response: string }[] = [];
+    
+    const agentResults = await Promise.all(
+      targetAgents.map(async (agent) => {
+        const result = await sendToGateway(agent, groupChatMessage, senderName, from);
+        return { agent, result };
+      })
+    );
+    
+    // Process responses and store them
+    for (const { agent, result } of agentResults) {
+      if (result.success && result.response) {
+        const response = result.response.trim();
+        const isNoResponse = response.toLowerCase().includes('[no response needed]') ||
+                            response.toLowerCase().includes('no response needed') ||
+                            response === '' ||
+                            response.length < 5;
+        
+        if (!isNoResponse) {
+          responses.push({ agent: agent.name, response: response });
+          
+          // Store each agent's response
+          await store.addMessage({
+            from: agent.id,
+            to: 'group',
+            content: response,
+            type: 'text',
+            metadata: { groupAgents },
           });
         }
       }
