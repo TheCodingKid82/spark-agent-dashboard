@@ -202,7 +202,15 @@ export async function getConversations(): Promise<Conversation[]> {
   
   const convMap = new Map<string, Conversation>();
   
+  // Exclude broadcast/group messages from DM conversations
+  const excludeParticipants = ['broadcast', 'group'];
+  
   for (const msg of messages) {
+    // Skip if either participant is broadcast or group
+    if (excludeParticipants.includes(msg.from) || excludeParticipants.includes(msg.to)) {
+      continue;
+    }
+    
     const participants = [msg.from, msg.to].sort();
     const convId = participants.join('-');
     
