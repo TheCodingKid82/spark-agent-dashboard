@@ -80,7 +80,7 @@ export async function sendMessage(req: SendMessageRequest): Promise<SendMessageR
   });
 
   // If sending to an agent, route through their gateway
-  if (to !== 'andrew' && to !== 'broadcast') {
+  if (to !== 'andrew' && to !== 'broadcast' && to !== 'group') {
     const agent = await store.getAgent(to);
     if (!agent) {
       return { success: false, error: `Agent '${to}' not found in registry` };
