@@ -312,8 +312,8 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   }
 
   // Check if current conversation is a group chat
-  const isGroupChat = selectedConv?.startsWith('group-');
-  const groupAgents = isGroupChat ? selectedConv.replace('group-', '').split('-') : [];
+  const isGroupChat = selectedConv?.startsWith('group-') ?? false;
+  const groupAgents = isGroupChat && selectedConv ? selectedConv.replace('group-', '').split('-') : [];
 
   if (!isOpen) return null;
 
