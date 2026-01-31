@@ -260,7 +260,6 @@ GROUP CHAT RULES:
             to: 'group',
             content: response,
             type: 'text',
-            metadata: { groupAgents },
           });
         }
       }
