@@ -145,12 +145,17 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
         // For now, use broadcast-style loading since group messages use to:"group"
         url += 'group=true&limit=100';
       } else if (selectedConv) {
-        // Handle both formats: "dm-andrew-atlas" and "andrew:atlas"
+        // Handle formats: "dm-andrew-atlas", "andrew:atlas", or "andrew-atlas"
         let parts: string[];
         if (selectedConv.startsWith('dm-')) {
           parts = selectedConv.replace('dm-', '').split('-');
-        } else {
+        } else if (selectedConv.includes(':')) {
           parts = selectedConv.split(':');
+        } else if (selectedConv.includes('-')) {
+          // Hyphen-separated format from API (e.g., "artemis-callisto")
+          parts = selectedConv.split('-');
+        } else {
+          return;
         }
         if (parts.length >= 2) {
           url += `participant1=${parts[0]}&participant2=${parts[1]}&limit=100`;
