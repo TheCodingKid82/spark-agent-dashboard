@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { Pool } from 'pg';
 
 export interface Goal {
   id: string;
@@ -27,34 +27,154 @@ export interface Goal {
   createdBy: string;      // Who created it (andrew, cale, henry)
 }
 
-const GOALS_KEY = 'spark:goals';
+// Create pool if DATABASE_URL is available
+const pool = process.env.DATABASE_URL ? new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+}) : null;
 
-async function getGoals(): Promise<Goal[]> {
-  const goals = await kv.get<Goal[]>(GOALS_KEY);
-  return goals || [];
+// In-memory fallback
+let memGoals: Goal[] = [];
+let initialized = false;
+
+async function initDb() {
+  if (initialized || !pool) return;
+  
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS goals (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        type TEXT DEFAULT 'ongoing',
+        priority TEXT DEFAULT 'medium',
+        status TEXT DEFAULT 'active',
+        metrics TEXT,
+        created_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL,
+        created_by TEXT DEFAULT 'andrew'
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_goals_agent ON goals(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+    `);
+    initialized = true;
+  } catch (error) {
+    console.error('Failed to initialize goals table:', error);
+  }
 }
 
-async function saveGoals(goals: Goal[]): Promise<void> {
-  await kv.set(GOALS_KEY, goals);
+async function getGoals(agentId?: string, status?: string): Promise<Goal[]> {
+  await initDb();
+  
+  if (pool) {
+    try {
+      let query = 'SELECT * FROM goals WHERE 1=1';
+      const params: any[] = [];
+      
+      if (agentId) {
+        params.push(agentId);
+        query += ` AND (agent_id = $${params.length} OR agent_id = 'all')`;
+      }
+      
+      if (status) {
+        params.push(status);
+        query += ` AND status = $${params.length}`;
+      }
+      
+      query += ' ORDER BY priority ASC, created_at DESC';
+      
+      const result = await pool.query(query, params);
+      return result.rows.map(row => ({
+        id: row.id,
+        agentId: row.agent_id,
+        title: row.title,
+        description: row.description,
+        type: row.type,
+        priority: row.priority,
+        status: row.status,
+        metrics: row.metrics,
+        createdAt: parseInt(row.created_at),
+        updatedAt: parseInt(row.updated_at),
+        createdBy: row.created_by,
+      }));
+    } catch (error) {
+      console.error('Failed to get goals from DB:', error);
+    }
+  }
+  
+  // Fallback to memory
+  let goals = [...memGoals];
+  if (agentId) {
+    goals = goals.filter(g => g.agentId === agentId || g.agentId === 'all');
+  }
+  if (status) {
+    goals = goals.filter(g => g.status === status);
+  }
+  return goals;
+}
+
+async function saveGoal(goal: Goal): Promise<void> {
+  await initDb();
+  
+  if (pool) {
+    try {
+      await pool.query(`
+        INSERT INTO goals (id, agent_id, title, description, type, priority, status, metrics, created_at, updated_at, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (id) DO UPDATE SET
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          type = EXCLUDED.type,
+          priority = EXCLUDED.priority,
+          status = EXCLUDED.status,
+          metrics = EXCLUDED.metrics,
+          updated_at = EXCLUDED.updated_at
+      `, [goal.id, goal.agentId, goal.title, goal.description, goal.type, goal.priority, goal.status, goal.metrics, goal.createdAt, goal.updatedAt, goal.createdBy]);
+      return;
+    } catch (error) {
+      console.error('Failed to save goal to DB:', error);
+    }
+  }
+  
+  // Fallback to memory
+  const idx = memGoals.findIndex(g => g.id === goal.id);
+  if (idx >= 0) {
+    memGoals[idx] = goal;
+  } else {
+    memGoals.push(goal);
+  }
+}
+
+async function deleteGoal(id: string): Promise<boolean> {
+  await initDb();
+  
+  if (pool) {
+    try {
+      const result = await pool.query('DELETE FROM goals WHERE id = $1', [id]);
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      console.error('Failed to delete goal from DB:', error);
+    }
+  }
+  
+  // Fallback to memory
+  const idx = memGoals.findIndex(g => g.id === id);
+  if (idx >= 0) {
+    memGoals.splice(idx, 1);
+    return true;
+  }
+  return false;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const agentId = searchParams.get('agentId');
-    const status = searchParams.get('status');
+    const agentId = searchParams.get('agentId') || undefined;
+    const status = searchParams.get('status') || undefined;
     
-    let goals = await getGoals();
-    
-    // Filter by agent if specified
-    if (agentId) {
-      goals = goals.filter(g => g.agentId === agentId || g.agentId === 'all');
-    }
-    
-    // Filter by status if specified
-    if (status) {
-      goals = goals.filter(g => g.status === status);
-    }
+    const goals = await getGoals(agentId, status);
     
     return NextResponse.json({ goals, count: goals.length });
   } catch (error) {
@@ -78,8 +198,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const goals = await getGoals();
-    
     const newGoal: Goal = {
       id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       agentId,
@@ -94,8 +212,7 @@ export async function POST(request: NextRequest) {
       createdBy,
     };
     
-    goals.push(newGoal);
-    await saveGoals(goals);
+    await saveGoal(newGoal);
     
     return NextResponse.json({ success: true, goal: newGoal });
   } catch (error) {
@@ -119,10 +236,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
+    // Get existing goal
     const goals = await getGoals();
-    const goalIndex = goals.findIndex(g => g.id === id);
+    const goal = goals.find(g => g.id === id);
     
-    if (goalIndex === -1) {
+    if (!goal) {
       return NextResponse.json(
         { error: 'Goal not found' },
         { status: 404 }
@@ -133,14 +251,14 @@ export async function PATCH(request: NextRequest) {
     const allowedUpdates = ['title', 'description', 'type', 'priority', 'status', 'metrics'];
     for (const key of allowedUpdates) {
       if (updates[key] !== undefined) {
-        (goals[goalIndex] as any)[key] = updates[key];
+        (goal as any)[key] = updates[key];
       }
     }
-    goals[goalIndex].updatedAt = Date.now();
+    goal.updatedAt = Date.now();
     
-    await saveGoals(goals);
+    await saveGoal(goal);
     
-    return NextResponse.json({ success: true, goal: goals[goalIndex] });
+    return NextResponse.json({ success: true, goal });
   } catch (error) {
     console.error('Update goal error:', error);
     return NextResponse.json(
@@ -162,17 +280,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    const goals = await getGoals();
-    const filteredGoals = goals.filter(g => g.id !== id);
+    const deleted = await deleteGoal(id);
     
-    if (filteredGoals.length === goals.length) {
+    if (!deleted) {
       return NextResponse.json(
         { error: 'Goal not found' },
         { status: 404 }
       );
     }
-    
-    await saveGoals(filteredGoals);
     
     return NextResponse.json({ success: true });
   } catch (error) {
