@@ -399,9 +399,9 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-64 border-r border-gray-800 flex flex-col bg-[#0a0a0f]">
+          <div className="w-64 border-r border-gray-800 flex flex-col bg-[#0a0a0f] overflow-y-auto">
             {/* Team Chat - All Hands */}
-            <div className="p-3 border-b border-gray-800">
+            <div className="p-3 border-b border-gray-800 flex-shrink-0">
               <button
                 onClick={() => { setSelectedConv('team-chat'); setViewMode('conversations'); }}
                 className={`w-full px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
@@ -429,7 +429,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
             
             {/* Group Chats */}
             {groupChats.length > 0 && (
-              <div className="p-3 border-b border-gray-800">
+              <div className="p-3 border-b border-gray-800 flex-shrink-0">
                 <div className="text-xs text-gray-500 mb-2">Group chats:</div>
                 {groupChats.map(group => (
                   <button
@@ -452,7 +452,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
             )}
 
             {/* Agent Quick Start */}
-            <div className="p-3 border-b border-gray-800">
+            <div className="p-3 border-b border-gray-800 flex-shrink-0">
               <div className="text-xs text-gray-500 mb-2">Direct message:</div>
               <div className="flex flex-wrap gap-1.5">
                 {agents.filter(a => a.id !== currentUserId).map(agent => (
