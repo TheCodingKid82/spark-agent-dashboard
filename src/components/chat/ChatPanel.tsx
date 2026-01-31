@@ -40,11 +40,31 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   const [loading, setLoading] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedAgentsForGroup, setSelectedAgentsForGroup] = useState<string[]>([]);
-  const [groupChats, setGroupChats] = useState<{id: string; name: string; agents: string[]}[]>([]);
+  const [groupChats, setGroupChats] = useState<{id: string; name: string; agents: string[]}[]>(() => {
+    // Load from localStorage on init
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('spark-group-chats');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
   const justSentMessage = useRef(false);
+
+  // Save group chats to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && groupChats.length > 0) {
+      localStorage.setItem('spark-group-chats', JSON.stringify(groupChats));
+    }
+  }, [groupChats]);
 
   // Load data when panel opens
   useEffect(() => {
