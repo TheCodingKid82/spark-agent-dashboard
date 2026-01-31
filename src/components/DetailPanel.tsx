@@ -29,6 +29,7 @@ import {
 import TaskBoard from "./tasks/TaskBoard";
 import GoalsSection from "./goals/GoalsSection";
 import type { Agent } from "@/types/agent";
+import { AgentIcon } from "@/lib/icons";
 
 interface DetailPanelProps {
   agent: Agent;
@@ -67,9 +68,8 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
     return a ? a.name : id;
   };
 
-  const getAgentEmoji = (id: string) => {
-    const a = allAgents.find((x) => x.id === id);
-    return a ? a.emoji : "🤖";
+  const renderAgentIcon = (id: string, size: number = 14) => {
+    return <AgentIcon agentId={id} size={size} weight="fill" className="text-indigo-400" />;
   };
 
   const handleServiceAction = useCallback(
@@ -125,8 +125,8 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center text-2xl border border-zinc-700">
-                {agent.emoji}
+              <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center border border-zinc-700">
+                <AgentIcon agentId={agent.id} size={26} weight="fill" className="text-indigo-400" />
               </div>
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-[#0e0e15]
@@ -471,10 +471,10 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
                     ) : (
                       <ArrowDownLeft className="w-3 h-3 text-green-400" />
                     )}
-                    <span className="text-[10px] font-medium text-zinc-400">
+                    <span className="text-[10px] font-medium text-zinc-400 flex items-center gap-1">
                       {isOutgoing ? "To" : "From"}{" "}
-                      <span className="text-zinc-300">
-                        {getAgentEmoji(isOutgoing ? comm.to : comm.from)}{" "}
+                      <span className="text-zinc-300 flex items-center gap-1">
+                        {renderAgentIcon(isOutgoing ? comm.to : comm.from, 12)}
                         {getAgentName(isOutgoing ? comm.to : comm.from)}
                       </span>
                     </span>

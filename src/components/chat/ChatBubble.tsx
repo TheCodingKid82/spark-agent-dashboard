@@ -3,6 +3,7 @@
 import React from "react";
 import type { Message } from "@/types/chat";
 import type { Agent } from "@/types/agent";
+import { AgentIcon } from "@/lib/icons";
 
 interface ChatBubbleProps {
   message: Message;
@@ -21,7 +22,6 @@ function formatTimestamp(ts: string): string {
 
 export default function ChatBubble({ message, agents, isOwn }: ChatBubbleProps) {
   const agent = agents.find((a) => a.id === message.sender);
-  const emoji = agent?.emoji || "🤖";
   const name = agent?.name || message.sender;
 
   return (
@@ -32,8 +32,8 @@ export default function ChatBubble({ message, agents, isOwn }: ChatBubbleProps) 
     >
       {/* Avatar */}
       {!isOwn && (
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-base border border-zinc-700/50 mt-0.5">
-          {emoji}
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700/50 mt-0.5">
+          <AgentIcon agentId={message.sender} size={18} weight="fill" className="text-indigo-400" />
         </div>
       )}
 

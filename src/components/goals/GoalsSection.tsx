@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Target, ChevronDown, ChevronRight } from 'lucide-react';
+import { ChartBar } from '@phosphor-icons/react';
+import { GoalTypeIcon, PriorityIcon } from '@/lib/icons';
 
 interface Goal {
   id: string;
@@ -21,11 +23,7 @@ const PRIORITY_COLORS = {
   low: 'bg-green-500/20 text-green-400 border-green-500/30',
 };
 
-const TYPE_ICONS = {
-  'long-term': '🎯',
-  'ongoing': '🔄',
-  'milestone': '🏁',
-};
+// Type icons now imported from @/lib/icons
 
 interface GoalsSectionProps {
   agentId: string;
@@ -87,13 +85,14 @@ export default function GoalsSection({ agentId, agentName }: GoalsSectionProps) 
                   className="p-2.5 rounded-lg bg-zinc-800/30 border border-zinc-700/30"
                 >
                   <div className="flex items-start gap-2">
-                    <span className="text-sm">{TYPE_ICONS[goal.type]}</span>
+                    <GoalTypeIcon type={goal.type} size={14} className="text-indigo-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <h4 className="text-[11px] font-medium text-zinc-200 truncate">
                           {goal.title}
                         </h4>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded border ${PRIORITY_COLORS[goal.priority]}`}>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${PRIORITY_COLORS[goal.priority]}`}>
+                          <PriorityIcon priority={goal.priority} size={10} />
                           {goal.priority}
                         </span>
                       </div>
@@ -101,8 +100,9 @@ export default function GoalsSection({ agentId, agentName }: GoalsSectionProps) 
                         {goal.description}
                       </p>
                       {goal.metrics && (
-                        <p className="text-[9px] text-indigo-400 mt-1">
-                          📊 {goal.metrics}
+                        <p className="text-[9px] text-indigo-400 mt-1 flex items-center gap-1">
+                          <ChartBar size={10} weight="fill" />
+                          {goal.metrics}
                         </p>
                       )}
                     </div>

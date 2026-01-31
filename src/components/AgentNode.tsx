@@ -4,6 +4,7 @@ import React, { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { AgentStatus } from "@/types/agent";
 import { MessageCircle } from "lucide-react";
+import { AgentIcon } from "@/lib/icons";
 
 interface AgentNodeData {
   label: string;
@@ -79,8 +80,8 @@ function AgentNode({ data, id }: NodeProps & { data: AgentNodeData }) {
         <div className="relative flex items-start gap-3">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl border border-zinc-700">
-              {emoji}
+            <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700">
+              <AgentIcon agentId={id} size={22} weight="fill" className="text-indigo-400" />
             </div>
             {/* Status indicator */}
             <div

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Target, ArrowsClockwise, Flag, WarningCircle, Warning, Info, CheckCircle, Play, Pause, PencilSimple, Trash, ChartBar, User } from '@phosphor-icons/react';
+import { GoalTypeIcon, PriorityIcon } from '@/lib/icons';
 
 interface Goal {
   id: string;
@@ -34,11 +36,7 @@ const PRIORITY_COLORS = {
   low: 'bg-green-500/20 text-green-400 border-green-500/30',
 };
 
-const TYPE_ICONS = {
-  'long-term': '🎯',
-  'ongoing': '🔄',
-  'milestone': '🏁',
-};
+// Type icons now imported from @/lib/icons
 
 export default function GoalsPanel() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -154,7 +152,8 @@ export default function GoalsPanel() {
     <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          🎯 Agent Goals
+          <Target size={20} weight="fill" className="text-indigo-400" />
+          Agent Goals
         </h2>
         <div className="flex gap-2">
           <select
@@ -239,9 +238,9 @@ export default function GoalsPanel() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as Goal['type'] })}
                     className="w-full bg-zinc-800 text-white rounded px-3 py-2 border border-zinc-700 mt-1"
                   >
-                    <option value="ongoing">🔄 Ongoing</option>
-                    <option value="long-term">🎯 Long-term</option>
-                    <option value="milestone">🏁 Milestone</option>
+                    <option value="ongoing">↻ Ongoing</option>
+                    <option value="long-term">⊕ Long-term</option>
+                    <option value="milestone">⚑ Milestone</option>
                   </select>
                 </div>
                 
@@ -252,10 +251,10 @@ export default function GoalsPanel() {
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value as Goal['priority'] })}
                     className="w-full bg-zinc-800 text-white rounded px-3 py-2 border border-zinc-700 mt-1"
                   >
-                    <option value="critical">🔴 Critical</option>
-                    <option value="high">🟠 High</option>
-                    <option value="medium">🟡 Medium</option>
-                    <option value="low">🟢 Low</option>
+                    <option value="critical">● Critical</option>
+                    <option value="high">● High</option>
+                    <option value="medium">● Medium</option>
+                    <option value="low">● Low</option>
                   </select>
                 </div>
               </div>
@@ -313,9 +312,10 @@ export default function GoalsPanel() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span>{TYPE_ICONS[goal.type]}</span>
+                    <GoalTypeIcon type={goal.type} size={16} className="text-indigo-400" />
                     <h3 className="font-medium text-white">{goal.title}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded border ${PRIORITY_COLORS[goal.priority]}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${PRIORITY_COLORS[goal.priority]}`}>
+                      <PriorityIcon priority={goal.priority} size={12} />
                       {goal.priority}
                     </span>
                     {goal.status === 'paused' && (
@@ -326,10 +326,16 @@ export default function GoalsPanel() {
                   </div>
                   <p className="text-sm text-zinc-400 mb-2">{goal.description}</p>
                   <div className="flex items-center gap-4 text-xs text-zinc-500">
-                    <span>
-                      👤 {AGENTS.find(a => a.id === goal.agentId)?.name || goal.agentId}
+                    <span className="flex items-center gap-1">
+                      <User size={12} weight="fill" />
+                      {AGENTS.find(a => a.id === goal.agentId)?.name || goal.agentId}
                     </span>
-                    {goal.metrics && <span>📊 {goal.metrics}</span>}
+                    {goal.metrics && (
+                      <span className="flex items-center gap-1">
+                        <ChartBar size={12} weight="fill" />
+                        {goal.metrics}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -338,21 +344,21 @@ export default function GoalsPanel() {
                     className="text-zinc-500 hover:text-yellow-400 p-1"
                     title={goal.status === 'paused' ? 'Resume' : 'Pause'}
                   >
-                    {goal.status === 'paused' ? '▶️' : '⏸️'}
+                    {goal.status === 'paused' ? <Play size={16} weight="fill" /> : <Pause size={16} weight="fill" />}
                   </button>
                   <button
                     onClick={() => handleEdit(goal)}
                     className="text-zinc-500 hover:text-blue-400 p-1"
                     title="Edit"
                   >
-                    ✏️
+                    <PencilSimple size={16} weight="fill" />
                   </button>
                   <button
                     onClick={() => handleDelete(goal.id)}
                     className="text-zinc-500 hover:text-red-400 p-1"
                     title="Delete"
                   >
-                    🗑️
+                    <Trash size={16} weight="fill" />
                   </button>
                 </div>
               </div>

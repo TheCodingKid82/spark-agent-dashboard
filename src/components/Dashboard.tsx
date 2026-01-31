@@ -27,6 +27,7 @@ import MeetingScheduler from "./chat/MeetingScheduler";
 import UpcomingMeetings from "./chat/UpcomingMeetings";
 import WhoAreYouModal, { getUserIdentity, type UserIdentity } from "./WhoAreYouModal";
 import GoalsPanel from "./goals/GoalsPanel";
+import { Target } from "@phosphor-icons/react";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
@@ -534,7 +535,10 @@ export default function Dashboard() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white">🎯 Agent Goals</h2>
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Target size={20} weight="fill" className="text-indigo-400" />
+                Agent Goals
+              </h2>
               <button
                 onClick={() => setShowGoals(false)}
                 className="text-zinc-500 hover:text-white p-1"

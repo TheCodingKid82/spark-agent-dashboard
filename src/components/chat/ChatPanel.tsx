@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, Eye, MessageCircle, Users, Plus, Check } from 'lucide-react';
 import type { Agent } from '@/types/agent';
+import { AgentIcon } from '@/lib/icons';
 
 interface ChatMessage {
   id: string;
@@ -290,11 +291,9 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
     return agent?.name || id;
   }, [agents, currentUserId]);
 
-  const getAgentEmoji = useCallback((id: string): string => {
-    if (id === 'andrew') return '👑';
-    const agent = agents.find(a => a.id === id);
-    return agent?.emoji || '🤖';
-  }, [agents]);
+  const renderAgentIcon = useCallback((id: string, size: number = 14) => {
+    return <AgentIcon agentId={id} size={size} weight="fill" className="text-indigo-400" />;
+  }, []);
 
   function formatTime(ts: number): string {
     return new Date(ts).toLocaleTimeString('en-US', {
@@ -466,7 +465,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                     }`}
                     title={agent.purpose}
                   >
-                    <span>{agent.emoji}</span>
+                    <AgentIcon agentId={agent.id} size={14} weight="fill" className="text-indigo-400" />
                     <span>{agent.name}</span>
                     {agent.status === 'online' && (
                       <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
@@ -496,7 +495,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                     >
                       <div className="flex justify-between items-start">
                         <span className="font-medium text-white text-sm flex items-center gap-1.5">
-                          <span>{getAgentEmoji(otherParticipant || '')}</span>
+                          {renderAgentIcon(otherParticipant || '', 14)}
                           {conv.participants.map(p => getAgentName(p)).join(' ↔ ')}
                         </span>
                         {conv.unreadCount > 0 && (
@@ -540,7 +539,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                   </>
                 ) : selectedRecipient ? (
                   <>
-                    <span>{getAgentEmoji(selectedRecipient)}</span>
+                    {renderAgentIcon(selectedRecipient, 16)}
                     Chat with {getAgentName(selectedRecipient)}
                   </>
                 ) : (
@@ -596,7 +595,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                       {/* Show sender info in observer mode, team chat, group chat, or viewing others' chats */}
                       {(viewMode === 'observer' || selectedConv === 'team-chat' || isGroupChat || isViewingOthersChat) && (
                         <div className="text-xs opacity-70 mb-1 flex items-center gap-1">
-                          <span>{getAgentEmoji(msg.from)}</span>
+                          {renderAgentIcon(msg.from, 12)}
                           <span className="font-medium">{msg.from === currentUserId ? 'You' : getAgentName(msg.from)}</span>
                           {viewMode === 'observer' && <span>→ {getAgentName(msg.to)}</span>}
                         </div>
@@ -672,7 +671,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                         : 'bg-gray-800/50 border border-gray-700 hover:bg-gray-800'
                     }`}
                   >
-                    <span className="text-lg">{agent.emoji}</span>
+                    <AgentIcon agentId={agent.id} size={18} weight="fill" className="text-indigo-400" />
                     <div className="flex-1 text-left">
                       <div className="text-sm font-medium text-white">{agent.name}</div>
                       <div className="text-xs text-gray-500">{agent.role}</div>
