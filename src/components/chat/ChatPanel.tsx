@@ -343,6 +343,9 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   // Check if current conversation is a group chat
   const isGroupChat = selectedConv?.startsWith('group-') ?? false;
   const groupAgents = isGroupChat && selectedConv ? selectedConv.replace('group-', '').split('-') : [];
+  
+  // Check if viewing someone else's conversation (not a participant)
+  const isViewingOthersChat = selectedConv && !selectedConv.includes(currentUserId) && selectedConv !== 'team-chat';
 
   if (!isOpen) return null;
 
@@ -590,8 +593,8 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                           : 'bg-gray-800 text-gray-100'
                       }`}
                     >
-                      {/* Show sender info in observer mode, team chat, or group chat */}
-                      {(viewMode === 'observer' || selectedConv === 'team-chat' || isGroupChat) && (
+                      {/* Show sender info in observer mode, team chat, group chat, or viewing others' chats */}
+                      {(viewMode === 'observer' || selectedConv === 'team-chat' || isGroupChat || isViewingOthersChat) && (
                         <div className="text-xs opacity-70 mb-1 flex items-center gap-1">
                           <span>{getAgentEmoji(msg.from)}</span>
                           <span className="font-medium">{msg.from === currentUserId ? 'You' : getAgentName(msg.from)}</span>
