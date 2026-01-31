@@ -7,6 +7,7 @@
  *   - limit: max messages (default 100)
  *   - since: timestamp filter
  *   - agents: comma-separated agent IDs to filter
+ *   - all: include broadcast/team chat messages (default false)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,18 +19,25 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const since = searchParams.get('since');
     const agentsFilter = searchParams.get('agents')?.split(',');
+    const includeAll = searchParams.get('all') === 'true';
     
     // Get all messages
     const allMessages = await store.getAllMessages(limit * 2);
     
-    // Filter to agent-to-agent DMs only
+    // Filter to agent messages
     const humanIds = ['andrew', 'cale'];
-    let dms = allMessages.filter(m => 
-      !humanIds.includes(m.from) && 
-      !humanIds.includes(m.to) &&
-      m.to !== 'broadcast' &&
-      !m.to.startsWith('group-')
-    );
+    let dms = allMessages.filter(m => {
+      // Must be FROM an agent (not human)
+      if (humanIds.includes(m.from)) return false;
+      
+      // If includeAll, show everything from agents
+      if (includeAll) return true;
+      
+      // Otherwise, only show agent-to-agent DMs (exclude broadcast/group)
+      return !humanIds.includes(m.to) && 
+             m.to !== 'broadcast' && 
+             !m.to.startsWith('group-');
+    });
     
     // Apply timestamp filter
     if (since) {
