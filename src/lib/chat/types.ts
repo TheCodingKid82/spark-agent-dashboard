@@ -10,7 +10,7 @@ export interface ChatMessage {
   from: string;        // Agent ID or 'andrew' or 'system'
   to: string;          // Agent ID or 'andrew' or 'broadcast'
   content: string;
-  type: 'text' | 'task' | 'report' | 'escalation';
+  type: 'text' | 'task' | 'report' | 'escalation' | 'dm';
   metadata?: {
     priority?: 'low' | 'normal' | 'high' | 'urgent';
     replyTo?: string;
