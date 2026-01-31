@@ -561,8 +561,8 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                           : 'bg-gray-800 text-gray-100'
                       }`}
                     >
-                      {/* Show sender info in observer mode or team chat */}
-                      {(viewMode === 'observer' || selectedConv === 'team-chat') && msg.from !== currentUserId && (
+                      {/* Show sender info in observer mode, team chat, or group chat */}
+                      {(viewMode === 'observer' || selectedConv === 'team-chat' || isGroupChat) && msg.from !== currentUserId && (
                         <div className="text-xs opacity-70 mb-1 flex items-center gap-1">
                           <span>{getAgentEmoji(msg.from)}</span>
                           <span className="font-medium">{getAgentName(msg.from)}</span>
