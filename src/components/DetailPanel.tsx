@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import TaskBoard from "./tasks/TaskBoard";
+import GoalsSection from "./goals/GoalsSection";
 import type { Agent } from "@/types/agent";
 
 interface DetailPanelProps {
@@ -409,6 +410,11 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
               <p className="text-[9px] text-zinc-600">Last Active</p>
             </div>
           </div>
+        </div>
+
+        {/* Goals */}
+        <div className="px-5 py-4 border-b border-zinc-800/30">
+          <GoalsSection agentId={agent.id} agentName={agent.name} />
         </div>
 
         {/* Tasks Kanban */}

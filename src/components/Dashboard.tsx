@@ -26,6 +26,7 @@ import ChatPanel from "./chat/ChatPanel";
 import MeetingScheduler from "./chat/MeetingScheduler";
 import UpcomingMeetings from "./chat/UpcomingMeetings";
 import WhoAreYouModal, { getUserIdentity, type UserIdentity } from "./WhoAreYouModal";
+import GoalsPanel from "./goals/GoalsPanel";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
@@ -232,6 +233,7 @@ export default function Dashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showMeetings, setShowMeetings] = useState(false);
+  const [showGoals, setShowGoals] = useState(false);
   const [initialChatId, setInitialChatId] = useState<string | null>(null);
   const [meetingRefreshKey, setMeetingRefreshKey] = useState(0);
   const [recentEdges, setRecentEdges] = useState<Set<string>>(new Set());
@@ -431,6 +433,7 @@ export default function Dashboard() {
         onAddAgent={() => setShowAddModal(true)}
         onOpenChat={handleOpenChat}
         onOpenMeetings={() => setShowMeetings(true)}
+        onOpenGoals={() => setShowGoals(true)}
         unreadCount={unreadCount}
       />
 
@@ -525,6 +528,26 @@ export default function Dashboard() {
         onClose={() => setShowMeetings(false)}
         onMeetingScheduled={handleMeetingScheduled}
       />
+
+      {/* Goals Panel */}
+      {showGoals && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <h2 className="text-lg font-semibold text-white">🎯 Agent Goals</h2>
+              <button
+                onClick={() => setShowGoals(false)}
+                className="text-zinc-500 hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-60px)]">
+              <GoalsPanel />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
