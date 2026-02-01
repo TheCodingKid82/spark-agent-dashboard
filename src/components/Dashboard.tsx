@@ -28,7 +28,8 @@ import UpcomingMeetings from "./chat/UpcomingMeetings";
 import WhoAreYouModal, { getUserIdentity, type UserIdentity } from "./WhoAreYouModal";
 import GoalsPanel from "./goals/GoalsPanel";
 import { PlansPanel } from "./plans/PlansPanel";
-import { Target, FileText } from "@phosphor-icons/react";
+import { StatusReportsPanel } from "./status/StatusReportsPanel";
+import { Target, FileText, ChartLine } from "@phosphor-icons/react";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
@@ -237,6 +238,7 @@ export default function Dashboard() {
   const [showMeetings, setShowMeetings] = useState(false);
   const [showGoals, setShowGoals] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
   const [initialChatId, setInitialChatId] = useState<string | null>(null);
   const [meetingRefreshKey, setMeetingRefreshKey] = useState(0);
   const [recentEdges, setRecentEdges] = useState<Set<string>>(new Set());
@@ -438,6 +440,7 @@ export default function Dashboard() {
         onOpenMeetings={() => setShowMeetings(true)}
         onOpenGoals={() => setShowGoals(true)}
         onOpenPlans={() => setShowPlans(true)}
+        onOpenStatus={() => setShowStatus(true)}
         unreadCount={unreadCount}
       />
 
@@ -574,6 +577,29 @@ export default function Dashboard() {
             </div>
             <div className="h-[calc(85vh-60px)] overflow-visible">
               <PlansPanel />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Reports Panel */}
+      {showStatus && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <ChartLine size={20} weight="fill" className="text-indigo-400" />
+                Status Reports
+              </h2>
+              <button
+                onClick={() => setShowStatus(false)}
+                className="text-zinc-500 hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-[calc(90vh-60px)] overflow-y-auto">
+              <StatusReportsPanel />
             </div>
           </div>
         </div>
