@@ -29,7 +29,10 @@ import WhoAreYouModal, { getUserIdentity, type UserIdentity } from "./WhoAreYouM
 import GoalsPanel from "./goals/GoalsPanel";
 import { PlansPanel } from "./plans/PlansPanel";
 import { StatusReportsPanel } from "./status/StatusReportsPanel";
-import { Target, FileText, ChartLine } from "@phosphor-icons/react";
+import { ActivityPanel } from "./activity/ActivityPanel";
+import { HeartbeatsPanel } from "./heartbeats/HeartbeatsPanel";
+import { CronsPanel } from "./crons/CronsPanel";
+import { Target, FileText, ChartLine, Activity, Heartbeat, Timer } from "@phosphor-icons/react";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
@@ -239,6 +242,9 @@ export default function Dashboard() {
   const [showGoals, setShowGoals] = useState(false);
   const [showPlans, setShowPlans] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
+  const [showHeartbeats, setShowHeartbeats] = useState(false);
+  const [showCrons, setShowCrons] = useState(false);
   const [initialChatId, setInitialChatId] = useState<string | null>(null);
   const [meetingRefreshKey, setMeetingRefreshKey] = useState(0);
   const [recentEdges, setRecentEdges] = useState<Set<string>>(new Set());
@@ -441,6 +447,9 @@ export default function Dashboard() {
         onOpenGoals={() => setShowGoals(true)}
         onOpenPlans={() => setShowPlans(true)}
         onOpenStatus={() => setShowStatus(true)}
+        onOpenActivity={() => setShowActivity(true)}
+        onOpenHeartbeats={() => setShowHeartbeats(true)}
+        onOpenCrons={() => setShowCrons(true)}
         unreadCount={unreadCount}
       />
 
@@ -600,6 +609,75 @@ export default function Dashboard() {
             </div>
             <div className="h-[calc(90vh-60px)] overflow-y-auto">
               <StatusReportsPanel />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Logs Panel */}
+      {showActivity && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Activity size={20} className="text-green-400" />
+                Agent Activity Logs
+              </h2>
+              <button
+                onClick={() => setShowActivity(false)}
+                className="text-zinc-500 hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-[calc(90vh-60px)]">
+              <ActivityPanel />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Heartbeats Panel */}
+      {showHeartbeats && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Heartbeat size={20} weight="fill" className="text-red-400" />
+                Heartbeat Manager
+              </h2>
+              <button
+                onClick={() => setShowHeartbeats(false)}
+                className="text-zinc-500 hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-[calc(90vh-60px)]">
+              <HeartbeatsPanel />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crons Panel */}
+      {showCrons && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Timer size={20} weight="fill" className="text-purple-400" />
+                Cron Job Manager
+              </h2>
+              <button
+                onClick={() => setShowCrons(false)}
+                className="text-zinc-500 hover:text-white p-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-[calc(90vh-60px)]">
+              <CronsPanel />
             </div>
           </div>
         </div>

@@ -12,6 +12,8 @@ import {
   Target,
   FileText,
   BarChart3,
+  Heart,
+  Clock,
 } from "lucide-react";
 import type { Agent } from "@/types/agent";
 
@@ -23,6 +25,9 @@ interface TopBarProps {
   onOpenGoals: () => void;
   onOpenPlans: () => void;
   onOpenStatus: () => void;
+  onOpenActivity?: () => void;
+  onOpenHeartbeats?: () => void;
+  onOpenCrons?: () => void;
   unreadCount: number;
 }
 
@@ -34,6 +39,9 @@ export default function TopBar({
   onOpenGoals,
   onOpenPlans,
   onOpenStatus,
+  onOpenActivity,
+  onOpenHeartbeats,
+  onOpenCrons,
   unreadCount,
 }: TopBarProps) {
   const onlineCount = agents.filter((a) => a.status === "online").length;
@@ -108,6 +116,39 @@ export default function TopBar({
             </div>
           </div>
         </div>
+
+        {/* Activity button */}
+        {onOpenActivity && (
+          <button
+            onClick={onOpenActivity}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 hover:border-zinc-600/50 text-zinc-300 text-xs font-medium transition-all duration-200 active:scale-95"
+          >
+            <Activity className="w-3.5 h-3.5 text-green-400" />
+            <span className="hidden sm:inline">Logs</span>
+          </button>
+        )}
+
+        {/* Heartbeats button */}
+        {onOpenHeartbeats && (
+          <button
+            onClick={onOpenHeartbeats}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 hover:border-zinc-600/50 text-zinc-300 text-xs font-medium transition-all duration-200 active:scale-95"
+          >
+            <Heart className="w-3.5 h-3.5 text-red-400" />
+            <span className="hidden sm:inline">Heartbeats</span>
+          </button>
+        )}
+
+        {/* Crons button */}
+        {onOpenCrons && (
+          <button
+            onClick={onOpenCrons}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 hover:border-zinc-600/50 text-zinc-300 text-xs font-medium transition-all duration-200 active:scale-95"
+          >
+            <Clock className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden sm:inline">Crons</span>
+          </button>
+        )}
 
         {/* Goals button */}
         <button
