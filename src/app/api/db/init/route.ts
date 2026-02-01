@@ -1,18 +1,31 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
 /**
  * POST /api/db/init
  * Initialize database tables for activity logs, heartbeats, and crons
+ * Add ?reset=true to drop and recreate tables
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const reset = searchParams.get('reset') === 'true';
+    
+    if (reset) {
+      // Drop existing tables to recreate with correct schema
+      await query(`DROP TABLE IF EXISTS agent_activity CASCADE`);
+      await query(`DROP TABLE IF EXISTS heartbeat_configs CASCADE`);
+      await query(`DROP TABLE IF EXISTS heartbeat_runs CASCADE`);
+      await query(`DROP TABLE IF EXISTS cron_jobs CASCADE`);
+      await query(`DROP TABLE IF EXISTS cron_runs CASCADE`);
+    }
+
     // Agent Activity Logs - real-time stream of agent actions
     await query(`
       CREATE TABLE IF NOT EXISTS agent_activity (
         id SERIAL PRIMARY KEY,
         agent_id VARCHAR(50) NOT NULL,
-        timestamp TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
         event_type VARCHAR(50) NOT NULL,
         direction VARCHAR(10),
         content TEXT,
@@ -22,7 +35,7 @@ export async function POST() {
     `);
     
     await query(`CREATE INDEX IF NOT EXISTS idx_activity_agent ON agent_activity(agent_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON agent_activity(timestamp)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_activity_created ON agent_activity(created_at)`);
 
     // Heartbeat Configurations - centralized heartbeat settings
     await query(`

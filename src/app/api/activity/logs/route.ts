@@ -16,29 +16,29 @@ export async function GET(request: NextRequest) {
     let logs;
     if (agentId && since) {
       logs = await sql`
-        SELECT * FROM agent_activity 
-        WHERE agent_id = ${agentId} AND timestamp > ${since}
-        ORDER BY timestamp DESC 
+        SELECT *, created_at as timestamp FROM agent_activity 
+        WHERE agent_id = ${agentId} AND created_at > ${since}
+        ORDER BY created_at DESC 
         LIMIT ${limit}
       `;
     } else if (agentId) {
       logs = await sql`
-        SELECT * FROM agent_activity 
+        SELECT *, created_at as timestamp FROM agent_activity 
         WHERE agent_id = ${agentId}
-        ORDER BY timestamp DESC 
+        ORDER BY created_at DESC 
         LIMIT ${limit}
       `;
     } else if (since) {
       logs = await sql`
-        SELECT * FROM agent_activity 
-        WHERE timestamp > ${since}
-        ORDER BY timestamp DESC 
+        SELECT *, created_at as timestamp FROM agent_activity 
+        WHERE created_at > ${since}
+        ORDER BY created_at DESC 
         LIMIT ${limit}
       `;
     } else {
       logs = await sql`
-        SELECT * FROM agent_activity 
-        ORDER BY timestamp DESC 
+        SELECT *, created_at as timestamp FROM agent_activity 
+        ORDER BY created_at DESC 
         LIMIT ${limit}
       `;
     }
@@ -95,7 +95,7 @@ export async function DELETE(request: NextRequest) {
     
     const result = await sql`
       DELETE FROM agent_activity 
-      WHERE timestamp < NOW() - INTERVAL '${olderThanDays} days'
+      WHERE created_at < NOW() - INTERVAL '${olderThanDays} days'
       RETURNING id
     `;
     
