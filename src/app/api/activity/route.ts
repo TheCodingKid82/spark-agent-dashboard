@@ -122,27 +122,23 @@ export async function POST(request: NextRequest) {
     `;
     
     if (existing.length > 0) {
-      if (currentTask !== undefined) {
-        await sql`
-          UPDATE agent_activity 
-          SET ${sql(updateField)} = NOW(), current_task = ${currentTask}, updated_at = NOW()
-          WHERE agent_id = ${agentId}
-        `;
+      // Update existing record - use explicit queries for dynamic columns
+      if (updateField === 'last_dm_activity') {
+        await sql`UPDATE agent_activity SET last_dm_activity = NOW(), current_task = ${currentTask || null}, updated_at = NOW() WHERE agent_id = ${agentId}`;
+      } else if (updateField === 'last_api_call') {
+        await sql`UPDATE agent_activity SET last_api_call = NOW(), current_task = ${currentTask || null}, updated_at = NOW() WHERE agent_id = ${agentId}`;
       } else {
-        // Dynamic column update workaround
-        if (updateField === 'last_dm_activity') {
-          await sql`UPDATE agent_activity SET last_dm_activity = NOW(), updated_at = NOW() WHERE agent_id = ${agentId}`;
-        } else if (updateField === 'last_api_call') {
-          await sql`UPDATE agent_activity SET last_api_call = NOW(), updated_at = NOW() WHERE agent_id = ${agentId}`;
-        } else {
-          await sql`UPDATE agent_activity SET last_heartbeat = NOW(), updated_at = NOW() WHERE agent_id = ${agentId}`;
-        }
+        await sql`UPDATE agent_activity SET last_heartbeat = NOW(), current_task = ${currentTask || null}, updated_at = NOW() WHERE agent_id = ${agentId}`;
       }
     } else {
-      await sql`
-        INSERT INTO agent_activity (agent_id, ${sql(updateField)}, current_task)
-        VALUES (${agentId}, NOW(), ${currentTask || null})
-      `;
+      // Insert new record
+      if (updateField === 'last_dm_activity') {
+        await sql`INSERT INTO agent_activity (agent_id, last_dm_activity, current_task) VALUES (${agentId}, NOW(), ${currentTask || null})`;
+      } else if (updateField === 'last_api_call') {
+        await sql`INSERT INTO agent_activity (agent_id, last_api_call, current_task) VALUES (${agentId}, NOW(), ${currentTask || null})`;
+      } else {
+        await sql`INSERT INTO agent_activity (agent_id, last_heartbeat, current_task) VALUES (${agentId}, NOW(), ${currentTask || null})`;
+      }
     }
     
     return NextResponse.json({
