@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Calendar,
   Target,
+  FileText,
 } from "lucide-react";
 import type { Agent } from "@/types/agent";
 
@@ -19,6 +20,7 @@ interface TopBarProps {
   onOpenChat: () => void;
   onOpenMeetings: () => void;
   onOpenGoals: () => void;
+  onOpenPlans: () => void;
   unreadCount: number;
 }
 
@@ -28,6 +30,7 @@ export default function TopBar({
   onOpenChat,
   onOpenMeetings,
   onOpenGoals,
+  onOpenPlans,
   unreadCount,
 }: TopBarProps) {
   const onlineCount = agents.filter((a) => a.status === "online").length;
@@ -110,6 +113,15 @@ export default function TopBar({
         >
           <Target className="w-3.5 h-3.5 text-amber-400" />
           <span className="hidden sm:inline">Goals</span>
+        </button>
+
+        {/* Plans button */}
+        <button
+          onClick={onOpenPlans}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700/50 hover:border-zinc-600/50 text-zinc-300 text-xs font-medium transition-all duration-200 active:scale-95"
+        >
+          <FileText className="w-3.5 h-3.5 text-teal-400" />
+          <span className="hidden sm:inline">Plans</span>
         </button>
 
         {/* Chat button */}
