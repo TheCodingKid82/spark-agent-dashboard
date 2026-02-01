@@ -10,6 +10,9 @@ import {
   XCircle,
   Clock,
   Pencil,
+  FileText,
+  FloppyDisk,
+  X,
 } from '@phosphor-icons/react';
 import { AgentIcon } from '@/lib/icons';
 
@@ -42,6 +45,12 @@ export function HeartbeatsPanel() {
   const [editingAgent, setEditingAgent] = useState<string | null>(null);
   const [editPrompt, setEditPrompt] = useState('');
   const [editInterval, setEditInterval] = useState(30);
+  
+  // HEARTBEAT.md file editing
+  const [editingFile, setEditingFile] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState('');
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [savingFile, setSavingFile] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -108,6 +117,38 @@ export function HeartbeatsPanel() {
       fetchData();
     } catch (error) {
       console.error('Save failed:', error);
+    }
+  };
+
+  const loadHeartbeatFile = async (agentId: string) => {
+    setLoadingFile(true);
+    setEditingFile(agentId);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/files?path=HEARTBEAT.md`);
+      const data = await res.json();
+      setFileContent(data.content || '');
+    } catch (error) {
+      console.error('Load file failed:', error);
+      setFileContent('# HEARTBEAT.md\n\nError loading file.');
+    } finally {
+      setLoadingFile(false);
+    }
+  };
+
+  const saveHeartbeatFile = async () => {
+    if (!editingFile) return;
+    setSavingFile(true);
+    try {
+      await fetch(`/api/agents/${editingFile}/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'HEARTBEAT.md', content: fileContent }),
+      });
+      setEditingFile(null);
+    } catch (error) {
+      console.error('Save file failed:', error);
+    } finally {
+      setSavingFile(false);
     }
   };
 
@@ -204,6 +245,13 @@ export function HeartbeatsPanel() {
                   
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => loadHeartbeatFile(config.agent_id)}
+                      className="p-1.5 rounded hover:bg-blue-500/20 text-blue-400"
+                      title="Edit HEARTBEAT.md"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => {
                         if (isEditing) {
                           setEditingAgent(null);
@@ -214,6 +262,7 @@ export function HeartbeatsPanel() {
                         }
                       }}
                       className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400"
+                      title="Edit config"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -221,6 +270,7 @@ export function HeartbeatsPanel() {
                       onClick={() => triggerHeartbeat(config.agent_id)}
                       disabled={triggeringAgent === config.agent_id || isRunning}
                       className="p-1.5 rounded bg-green-500/20 hover:bg-green-500/30 text-green-400 disabled:opacity-50"
+                      title="Run heartbeat"
                     >
                       {triggeringAgent === config.agent_id || isRunning ? (
                         <ArrowsClockwise className="w-4 h-4 animate-spin" />
@@ -310,6 +360,61 @@ export function HeartbeatsPanel() {
           </span>
         </div>
       </div>
+
+      {/* HEARTBEAT.md File Editor Modal */}
+      {editingFile && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-400" />
+                HEARTBEAT.md - <span className="capitalize">{editingFile}</span>
+              </h3>
+              <button
+                onClick={() => setEditingFile(null)}
+                className="p-1 hover:bg-zinc-700 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              {loadingFile ? (
+                <div className="flex items-center justify-center py-8">
+                  <ArrowsClockwise className="w-6 h-6 animate-spin text-zinc-500" />
+                  <span className="ml-2 text-zinc-500">Loading file...</span>
+                </div>
+              ) : (
+                <textarea
+                  value={fileContent}
+                  onChange={(e) => setFileContent(e.target.value)}
+                  className="w-full h-[50vh] bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:border-blue-500/50"
+                  placeholder="# HEARTBEAT.md content..."
+                />
+              )}
+            </div>
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-zinc-700">
+              <button
+                onClick={() => setEditingFile(null)}
+                className="px-4 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveHeartbeatFile}
+                disabled={savingFile || loadingFile}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm hover:bg-blue-500/30 disabled:opacity-50"
+              >
+                {savingFile ? (
+                  <ArrowsClockwise className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FloppyDisk className="w-4 h-4" />
+                )}
+                Save to Agent
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
