@@ -70,12 +70,23 @@ const ACTIVITY_CONFIG = {
   offline: { color: 'text-zinc-500', bg: 'bg-zinc-500', label: 'Offline' },
 };
 
+// Head agents who can submit plans
+const HEAD_AGENTS = [
+  { id: 'atlas', name: 'Atlas', role: 'Head of Announcements' },
+  { id: 'apollo', name: 'Apollo', role: 'Head of Agency' },
+  { id: 'artemis', name: 'Artemis', role: 'Head of Funnels' },
+];
+
 export function PlansPanel() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [activities, setActivities] = useState<AgentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
+  const [requestPrompt, setRequestPrompt] = useState('');
+  const [requesting, setRequesting] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -118,6 +129,40 @@ export function PlansPanel() {
     }
   };
 
+  const handleRequestPlan = async () => {
+    if (!selectedAgent) return;
+    
+    setRequesting(true);
+    try {
+      const agent = HEAD_AGENTS.find(a => a.id === selectedAgent);
+      const message = requestPrompt.trim() 
+        ? `Create a detailed plan for: ${requestPrompt}\n\nSubmit your plan using POST /api/plans with: objective, description, steps (array with id, description, status), collaborators (agent IDs), cronSchedule (optional), estimatedHours. Include specific metrics and success criteria.`
+        : `Review your current goals and create a detailed action plan. Submit using POST /api/plans with: objective, description, steps (array), collaborators, cronSchedule, estimatedHours. Be specific about metrics and timelines.`;
+      
+      const res = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: selectedAgent,
+          message,
+          fromId: 'andrew',
+        }),
+      });
+      
+      if (res.ok) {
+        setShowRequestModal(false);
+        setSelectedAgent('');
+        setRequestPrompt('');
+        // Show success feedback
+        alert(`Plan request sent to ${agent?.name}. They will submit their plan shortly.`);
+      }
+    } catch (error) {
+      console.error('Request failed:', error);
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   const filteredPlans = filter === 'all' 
     ? plans 
     : plans.filter(p => p.status === filter);
@@ -143,12 +188,21 @@ export function PlansPanel() {
             <FileText className="w-5 h-5 text-indigo-400" />
             Agent Plans
           </h2>
-          <button
-            onClick={fetchData}
-            className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
-          >
-            <ArrowsClockwise className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRequestModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-400 text-xs font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Request Plan
+            </button>
+            <button
+              onClick={fetchData}
+              className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
+            >
+              <ArrowsClockwise className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
         
         {/* Filter tabs */}
@@ -387,6 +441,85 @@ export function PlansPanel() {
           })
         )}
       </div>
+
+      {/* Request Plan Modal */}
+      {showRequestModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-indigo-400" />
+              Request Plan from Agent
+            </h3>
+            
+            {/* Agent Selector */}
+            <div className="mb-4">
+              <label className="text-sm text-zinc-400 mb-2 block">Select Agent</label>
+              <div className="grid gap-2">
+                {HEAD_AGENTS.map(agent => (
+                  <button
+                    key={agent.id}
+                    onClick={() => setSelectedAgent(agent.id)}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                      selectedAgent === agent.id
+                        ? 'bg-indigo-500/20 border-indigo-500/50 text-white'
+                        : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'
+                    }`}
+                  >
+                    <AgentIcon agentId={agent.id} size={32} />
+                    <div className="text-left">
+                      <p className="font-medium">{agent.name}</p>
+                      <p className="text-xs text-zinc-500">{agent.role}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Optional Prompt */}
+            <div className="mb-6">
+              <label className="text-sm text-zinc-400 mb-2 block">
+                What should they plan? (optional)
+              </label>
+              <textarea
+                value={requestPrompt}
+                onChange={(e) => setRequestPrompt(e.target.value)}
+                placeholder="e.g., Increase Calc Pack conversions to 10%..."
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 resize-none"
+                rows={3}
+              />
+              <p className="text-xs text-zinc-500 mt-1">
+                Leave empty to ask them to plan based on their current goals
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRequestModal(false);
+                  setSelectedAgent('');
+                  setRequestPrompt('');
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRequestPlan}
+                disabled={!selectedAgent || requesting}
+                className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {requesting ? (
+                  <ArrowsClockwise className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                Request Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
