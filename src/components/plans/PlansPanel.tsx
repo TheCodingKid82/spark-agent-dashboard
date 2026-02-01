@@ -96,6 +96,9 @@ export function PlansPanel() {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [editFeedback, setEditFeedback] = useState('');
   const [sendingEdit, setSendingEdit] = useState(false);
+  
+  // Check-in state
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -137,6 +140,42 @@ export function PlansPanel() {
       }
     } catch (error) {
       console.error('Action failed:', error);
+    }
+  };
+
+  const handleCheckIn = async (plan: Plan) => {
+    setCheckingIn(plan.id);
+    try {
+      const message = `**CHECK-IN REQUEST from Command Center**
+
+Report your current progress on plan: "${plan.objective}"
+
+Please provide:
+1. What have you completed since the last update?
+2. What are you currently working on?
+3. Any blockers or issues?
+4. Estimated time to completion?
+
+Post your update via: POST /api/plans/${plan.id}/updates with { message, type: 'progress' }`;
+
+      const res = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'andrew',
+          to: plan.agentId,
+          content: message,
+        }),
+      });
+      
+      if (res.ok) {
+        // Refresh to show the request was sent
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Check-in failed:', error);
+    } finally {
+      setCheckingIn(null);
     }
   };
 
@@ -537,6 +576,26 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
                         >
                           <Play className="w-4 h-4" />
                           Start Execution
+                        </button>
+                      </div>
+                    )}
+                    
+                    {plan.status === 'in_progress' && (
+                      <div className="flex gap-2 pt-2 border-t border-zinc-800/50">
+                        <button
+                          onClick={() => handleCheckIn(plan)}
+                          disabled={checkingIn === plan.id}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ArrowsClockwise className={`w-4 h-4 ${checkingIn === plan.id ? 'animate-spin' : ''}`} />
+                          {checkingIn === plan.id ? 'Requesting...' : 'Check In'}
+                        </button>
+                        <button
+                          onClick={() => handleAction(plan.id, 'complete')}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Mark Complete
                         </button>
                       </div>
                     )}
