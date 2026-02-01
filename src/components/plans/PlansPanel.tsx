@@ -156,7 +156,11 @@ Please provide:
 3. Any blockers or issues?
 4. Estimated time to completion?
 
-Post your update via: POST /api/plans/${plan.id}/updates with { message, type: 'progress' }`;
+Post your update via either:
+- POST /api/plans/${plan.id}/updates with { message, type }
+- POST /api/plans/update with { planId: "${plan.id}", message, type }
+
+Types: progress | blocker | completed | milestone | note`;
 
       const res = await fetch('/api/chat/send', {
         method: 'POST',
