@@ -45,6 +45,7 @@ export function HeartbeatsPanel() {
   const [editingAgent, setEditingAgent] = useState<string | null>(null);
   const [editPrompt, setEditPrompt] = useState('');
   const [editInterval, setEditInterval] = useState(30);
+  const [expandedResponse, setExpandedResponse] = useState<string | null>(null);
   
   // HEARTBEAT.md file editing
   const [editingFile, setEditingFile] = useState<string | null>(null);
@@ -352,9 +353,33 @@ export function HeartbeatsPanel() {
               {/* Last Response Preview */}
               {lastRun?.response && !isEditing && (
                 <div className="px-3 pb-3">
-                  <p className="text-xs text-zinc-500 truncate">
-                    {lastRun.response.slice(0, 150)}{lastRun.response.length > 150 ? '...' : ''}
-                  </p>
+                  {expandedResponse === config.agent_id ? (
+                    <div className="space-y-2">
+                      <pre className="text-xs text-zinc-400 whitespace-pre-wrap break-words bg-zinc-800/50 rounded-lg p-3 max-h-96 overflow-y-auto">
+                        {lastRun.response}
+                      </pre>
+                      <button
+                        onClick={() => setExpandedResponse(null)}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        ▲ Collapse
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setExpandedResponse(config.agent_id)}
+                      className="w-full text-left group"
+                    >
+                      <p className="text-xs text-zinc-500 truncate group-hover:text-zinc-400 transition-colors">
+                        {lastRun.response.slice(0, 150)}{lastRun.response.length > 150 ? '...' : ''}
+                      </p>
+                      {lastRun.response.length > 150 && (
+                        <span className="text-xs text-blue-400 group-hover:text-blue-300">
+                          ▼ Click to expand
+                        </span>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
