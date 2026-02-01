@@ -32,7 +32,7 @@ import { StatusReportsPanel } from "./status/StatusReportsPanel";
 import { ActivityPanel } from "./activity/ActivityPanel";
 import { HeartbeatsPanel } from "./heartbeats/HeartbeatsPanel";
 import { CronsPanel } from "./crons/CronsPanel";
-import { Target, FileText, ChartLine, Activity, Heartbeat, Timer } from "@phosphor-icons/react";
+import { Target, FileText, ChartLine, WaveSquare, Heartbeat, Timer } from "@phosphor-icons/react";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as unknown as NodeTypes["agent"],
@@ -620,7 +620,7 @@ export default function Dashboard() {
           <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Activity size={20} className="text-green-400" />
+                <WaveSquare size={20} className="text-green-400" />
                 Agent Activity Logs
               </h2>
               <button

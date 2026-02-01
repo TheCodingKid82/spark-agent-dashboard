@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  Activity,
+  Pulse,
   ArrowsClockwise,
   CaretDown,
   ArrowUp,
@@ -11,8 +11,8 @@ import {
   Clock,
   Warning,
   CheckCircle,
-  Pulse,
   Funnel,
+  WaveSquare,
 } from '@phosphor-icons/react';
 import { AgentIcon } from '@/lib/icons';
 
@@ -35,7 +35,7 @@ const EVENT_COLORS: Record<string, { bg: string; text: string; icon: React.React
   message: { bg: 'bg-zinc-800/50', text: 'text-zinc-400', icon: <Lightning className="w-3 h-3" /> },
   tool_call: { bg: 'bg-amber-500/10', text: 'text-amber-400', icon: <Lightning className="w-3 h-3" /> },
   error: { bg: 'bg-red-500/10', text: 'text-red-400', icon: <Warning className="w-3 h-3" /> },
-  default: { bg: 'bg-zinc-800/50', text: 'text-zinc-400', icon: <Activity className="w-3 h-3" /> },
+  default: { bg: 'bg-zinc-800/50', text: 'text-zinc-400', icon: <WaveSquare className="w-3 h-3" /> },
 };
 
 export function ActivityPanel() {
@@ -101,7 +101,7 @@ export function ActivityPanel() {
       <div className="p-4 border-b border-zinc-800/50">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Activity className="w-5 h-5 text-green-400" />
+            <WaveSquare className="w-5 h-5 text-green-400" />
             Agent Activity
             {autoRefresh && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
           </h2>
