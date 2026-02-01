@@ -22,7 +22,7 @@ export async function POST() {
     `);
     
     await query(`CREATE INDEX IF NOT EXISTS idx_activity_agent ON agent_activity(agent_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON agent_activity(timestamp DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON agent_activity(timestamp)`);
 
     // Heartbeat Configurations - centralized heartbeat settings
     await query(`
@@ -52,7 +52,7 @@ export async function POST() {
     `);
     
     await query(`CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_agent ON heartbeat_runs(agent_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_started ON heartbeat_runs(started_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_heartbeat_runs_started ON heartbeat_runs(started_at)`);
 
     // Cron Jobs - centralized cron management
     await query(`
@@ -90,7 +90,7 @@ export async function POST() {
     `);
     
     await query(`CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs(job_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS idx_cron_runs_started ON cron_runs(started_at DESC)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_cron_runs_started ON cron_runs(started_at)`);
 
     // Insert default heartbeat configs for all agents
     const agents = ['atlas', 'apollo', 'artemis', 'maia', 'orpheus', 'callisto', 'iris'];
