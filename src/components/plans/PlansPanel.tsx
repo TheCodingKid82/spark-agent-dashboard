@@ -143,9 +143,9 @@ export function PlansPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agentId: selectedAgent,
-          message,
-          fromId: 'andrew',
+          from: 'andrew',
+          to: selectedAgent,
+          content: message,
         }),
       });
       
