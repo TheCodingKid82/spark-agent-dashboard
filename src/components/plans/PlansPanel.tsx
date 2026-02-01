@@ -14,6 +14,10 @@ import {
   Plus,
   ArrowsClockwise,
   WarningCircle,
+  Lightning,
+  Flag,
+  ChatCircleText,
+  Pulse,
 } from '@phosphor-icons/react';
 import { AgentIcon } from '@/lib/icons';
 
@@ -114,9 +118,11 @@ export function PlansPanel() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30s
+    // Fast refresh (15s) when there are in_progress plans, otherwise 30s
+    const hasActivePlans = plans.some(p => p.status === 'in_progress');
+    const interval = setInterval(fetchData, hasActivePlans ? 15000 : 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [plans.length]);
 
   const handleAction = async (planId: string, action: string, data?: object) => {
     try {
@@ -417,34 +423,81 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
                       </div>
                     )}
 
-                    {/* Updates */}
-                    {plan.updates.length > 0 && (
-                      <div>
-                        <p className="text-xs text-zinc-500 mb-2">Updates</p>
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                          {plan.updates.slice().reverse().map(update => (
-                            <div
-                              key={update.id}
-                              className="flex gap-2 text-sm bg-zinc-800/30 rounded-lg p-2"
-                            >
-                              {update.type === 'blocker' ? (
-                                <WarningCircle className="w-4 h-4 text-red-400 shrink-0" />
-                              ) : update.type === 'completed' ? (
-                                <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-                              ) : (
-                                <FileText className="w-4 h-4 text-zinc-500 shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-zinc-300">{update.message}</p>
-                                <p className="text-xs text-zinc-500 mt-1">
-                                  {formatTime(update.timestamp)}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                    {/* Updates - Live Activity Feed */}
+                    <div className={`${plan.status === 'in_progress' ? 'bg-indigo-500/5 border border-indigo-500/20 rounded-lg p-3' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
+                          {plan.status === 'in_progress' && <Pulse className="w-3 h-3 text-green-400 animate-pulse" />}
+                          Live Updates ({plan.updates.length})
+                        </p>
+                        {plan.updates.length > 0 && (
+                          <span className="text-[10px] text-zinc-600">
+                            Last: {formatTime(plan.updates[plan.updates.length - 1]?.timestamp)}
+                          </span>
+                        )}
                       </div>
-                    )}
+                      {plan.updates.length === 0 ? (
+                        <p className="text-xs text-zinc-600 italic">No updates yet</p>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {plan.updates.slice().reverse().map(update => {
+                            const updateTime = new Date(update.timestamp);
+                            const timeStr = updateTime.toLocaleTimeString('en-US', { 
+                              hour: 'numeric', 
+                              minute: '2-digit',
+                              hour12: true 
+                            });
+                            const dateStr = updateTime.toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric'
+                            });
+                            
+                            return (
+                              <div
+                                key={update.id}
+                                className={`flex gap-2 text-sm rounded-lg p-2.5 ${
+                                  update.type === 'blocker' ? 'bg-red-500/10 border border-red-500/20' :
+                                  update.type === 'milestone' ? 'bg-green-500/10 border border-green-500/20' :
+                                  update.type === 'completed' ? 'bg-green-500/10 border border-green-500/20' :
+                                  'bg-zinc-800/50'
+                                }`}
+                              >
+                                <div className="shrink-0 mt-0.5">
+                                  {update.type === 'blocker' && <WarningCircle className="w-4 h-4 text-red-400" />}
+                                  {update.type === 'completed' && <CheckCircle className="w-4 h-4 text-green-400" />}
+                                  {update.type === 'milestone' && <Flag className="w-4 h-4 text-green-400" />}
+                                  {update.type === 'progress' && <Lightning className="w-4 h-4 text-indigo-400" />}
+                                  {update.type === 'note' && <ChatCircleText className="w-4 h-4 text-zinc-400" />}
+                                  {!['blocker', 'completed', 'milestone', 'progress', 'note'].includes(update.type) && (
+                                    <FileText className="w-4 h-4 text-zinc-500" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-zinc-200">{update.message}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] text-zinc-500 font-mono">
+                                      {timeStr}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-600">
+                                      {dateStr}
+                                    </span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                      update.type === 'blocker' ? 'bg-red-500/20 text-red-400' :
+                                      update.type === 'milestone' ? 'bg-green-500/20 text-green-400' :
+                                      update.type === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                      update.type === 'progress' ? 'bg-indigo-500/20 text-indigo-400' :
+                                      'bg-zinc-700 text-zinc-400'
+                                    }`}>
+                                      {update.type}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
 
                     {/* Actions */}
                     {plan.status === 'pending' && (
