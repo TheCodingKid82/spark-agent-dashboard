@@ -572,7 +572,7 @@ export default function Dashboard() {
                 ✕
               </button>
             </div>
-            <div className="h-[calc(85vh-60px)]">
+            <div className="h-[calc(85vh-60px)] overflow-visible">
               <PlansPanel />
             </div>
           </div>

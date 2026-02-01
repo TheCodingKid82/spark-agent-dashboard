@@ -444,7 +444,7 @@ export function PlansPanel() {
 
       {/* Request Plan Modal */}
       {showRequestModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
           <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md p-6 shadow-2xl">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Plus className="w-5 h-5 text-indigo-400" />
