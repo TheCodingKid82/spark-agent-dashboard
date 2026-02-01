@@ -70,6 +70,72 @@ async function sendToGateway(
 export async function sendMessage(req: SendMessageRequest): Promise<SendMessageResponse> {
   const { from, to, content, type = 'text', priority = 'normal', groupAgents } = req;
 
+  // Handle DM channel format (e.g., "atlas-maia" means DM between atlas and maia)
+  // Andrew can send to a DM channel to message both agents in that conversation
+  if (to.includes('-') && to !== 'broadcast' && to !== 'group') {
+    const dmAgents = to.split('-');
+    // Verify both are valid agents
+    const allAgents = await store.getAllAgents();
+    const validAgents = dmAgents.filter(id => allAgents.some(a => a.id === id));
+    
+    if (validAgents.length >= 2) {
+      // This is a DM channel - send to all agents in the DM
+      const sentMessage = await store.addMessage({
+        from,
+        to, // Keep the channel name for storage
+        content,
+        type,
+        metadata: { priority, dmChannel: to },
+      });
+
+      const senderName = from === 'andrew' ? 'Andrew (Co-founder)' : 
+        (allAgents.find(a => a.id === from)?.name || from);
+      
+      const dmMessage = `💬 DM CHANNEL: ${dmAgents.join(' & ')}
+
+${senderName}: ${content}
+
+---
+This is a DM conversation. Andrew is observing/participating. Respond naturally.`;
+
+      const responses: { agent: string; response: string }[] = [];
+      
+      const agentResults = await Promise.all(
+        validAgents.map(async (agentId) => {
+          const agent = allAgents.find(a => a.id === agentId);
+          if (!agent) return null;
+          const result = await sendToGateway(agent, dmMessage, senderName, from);
+          return { agent, result };
+        })
+      );
+      
+      for (const item of agentResults) {
+        if (!item) continue;
+        const { agent, result } = item;
+        if (result.success && result.response) {
+          const response = result.response.trim();
+          if (response.length >= 5) {
+            responses.push({ agent: agent.name, response });
+            await store.addMessage({
+              from: agent.id,
+              to, // Keep the channel name
+              content: response,
+              type: 'text',
+              metadata: { dmChannel: to },
+            });
+          }
+        }
+      }
+      
+      return {
+        success: true,
+        messageId: sentMessage.id,
+        teamResponses: responses,
+      };
+    }
+    // If not a valid DM channel, fall through to single agent lookup
+  }
+
   // Store the outgoing message
   const sentMessage = await store.addMessage({
     from,
