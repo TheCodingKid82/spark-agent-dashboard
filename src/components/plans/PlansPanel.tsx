@@ -102,8 +102,13 @@ export function PlansPanel() {
   // Check-in state
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   
-  // Auto-approve state
-  const [autoApprove, setAutoApprove] = useState<boolean>(false);
+  // Auto-approve state - persist to localStorage
+  const [autoApprove, setAutoApprove] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('autoApprove') === 'true';
+    }
+    return false;
+  });
 
   const fetchData = async () => {
     try {
@@ -131,6 +136,29 @@ export function PlansPanel() {
     const interval = setInterval(fetchData, hasActivePlans ? 15000 : 30000);
     return () => clearInterval(interval);
   }, [plans.length]);
+
+  // Persist auto-approve to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('autoApprove', String(autoApprove));
+    }
+  }, [autoApprove]);
+
+  // Auto-approve pending approval requests when enabled
+  useEffect(() => {
+    if (!autoApprove) return;
+    
+    const approvalRequests = plans.flatMap(plan => 
+      (plan.updates || [])
+        .filter(u => u.type === 'approval' && !u.message.startsWith('✅') && !u.message.startsWith('❌'))
+        .map(u => ({ ...u, plan }))
+    );
+    
+    // Auto-approve each pending request
+    approvalRequests.forEach(req => {
+      handleApprovalResponse(req.plan.id, req.id, true);
+    });
+  }, [plans, autoApprove]);
 
   const handleAction = async (planId: string, action: string, data?: object) => {
     try {
@@ -393,11 +421,22 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
 
       {/* Approval Requests Section */}
       {(() => {
-        const approvalRequests = plans.flatMap(plan => 
-          (plan.updates || [])
+        // Filter out approval requests that have already been handled
+        // (check if there's a note update that references the approval message)
+        const approvalRequests = plans.flatMap(plan => {
+          const noteMessages = (plan.updates || [])
+            .filter(u => u.type === 'note')
+            .map(u => u.message);
+          
+          return (plan.updates || [])
             .filter(u => u.type === 'approval')
-            .map(u => ({ ...u, plan }))
-        ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            // Exclude if already handled (note exists with ✅ or ❌ prefix referencing this message)
+            .filter(u => !noteMessages.some(note => 
+              (note.startsWith('✅ Approved:') || note.startsWith('❌ Denied:')) && 
+              note.includes(u.message.slice(0, 50))
+            ))
+            .map(u => ({ ...u, plan }));
+        }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         
         if (approvalRequests.length === 0) return null;
         
