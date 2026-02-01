@@ -73,6 +73,23 @@ export function HeartbeatsPanel() {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-scheduler: trigger heartbeats for enabled agents every minute
+  useEffect(() => {
+    const runScheduler = async () => {
+      try {
+        await fetch('/api/heartbeats/scheduler', { method: 'POST' });
+        fetchData(); // Refresh after running
+      } catch (error) {
+        console.error('Scheduler failed:', error);
+      }
+    };
+    
+    // Run immediately on mount, then every 60 seconds
+    runScheduler();
+    const schedulerInterval = setInterval(runScheduler, 60000);
+    return () => clearInterval(schedulerInterval);
+  }, []);
+
   const triggerHeartbeat = async (agentId: string) => {
     setTriggeringAgent(agentId);
     try {
