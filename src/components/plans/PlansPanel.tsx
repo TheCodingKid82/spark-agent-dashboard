@@ -18,8 +18,10 @@ import {
   Flag,
   ChatCircleText,
   Pulse,
+  Seal,
 } from '@phosphor-icons/react';
 import { AgentIcon } from '@/lib/icons';
+import ReactMarkdown from 'react-markdown';
 
 interface PlanStep {
   id: string;
@@ -32,7 +34,7 @@ interface PlanUpdate {
   id: string;
   timestamp: string;
   message: string;
-  type: 'progress' | 'blocker' | 'completed' | 'milestone' | 'note';
+  type: 'progress' | 'blocker' | 'completed' | 'milestone' | 'note' | 'approval';
 }
 
 interface Plan {
@@ -99,6 +101,9 @@ export function PlansPanel() {
   
   // Check-in state
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  
+  // Auto-approve state
+  const [autoApprove, setAutoApprove] = useState<boolean>(false);
 
   const fetchData = async () => {
     try {
@@ -180,6 +185,47 @@ Types: progress | blocker | completed | milestone | note`;
       console.error('Check-in failed:', error);
     } finally {
       setCheckingIn(null);
+    }
+  };
+
+  const handleApprovalResponse = async (planId: string, updateId: string, approved: boolean) => {
+    try {
+      // Find the plan and update
+      const plan = plans.find(p => p.id === planId);
+      if (!plan) return;
+      
+      const update = plan.updates.find(u => u.id === updateId);
+      if (!update) return;
+      
+      // Send response to agent
+      const responseMessage = approved 
+        ? `✅ **APPROVED:** ${update.message}\n\nYou may proceed with this action.`
+        : `❌ **DENIED:** ${update.message}\n\nPlease do not proceed with this action. Contact leadership for clarification if needed.`;
+      
+      await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'andrew',
+          to: plan.agentId,
+          content: responseMessage,
+        }),
+      });
+      
+      // Add a note update about the approval decision
+      await fetch('/api/plans/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId,
+          message: `${approved ? '✅ Approved' : '❌ Denied'}: ${update.message}`,
+          type: 'note',
+        }),
+      });
+      
+      fetchData();
+    } catch (error) {
+      console.error('Approval response failed:', error);
     }
   };
 
@@ -345,6 +391,68 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
         </div>
       </div>
 
+      {/* Approval Requests Section */}
+      {(() => {
+        const approvalRequests = plans.flatMap(plan => 
+          (plan.updates || [])
+            .filter(u => u.type === 'approval')
+            .map(u => ({ ...u, plan }))
+        ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        
+        if (approvalRequests.length === 0) return null;
+        
+        return (
+          <div className="p-3 border-b border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
+                <Seal className="w-4 h-4" />
+                Approval Requests ({approvalRequests.length})
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-zinc-500">Auto-approve</span>
+                <button
+                  onClick={() => setAutoApprove(!autoApprove)}
+                  className={`w-8 h-4 rounded-full transition-colors relative ${
+                    autoApprove ? 'bg-green-500' : 'bg-zinc-600'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${
+                    autoApprove ? 'left-4' : 'left-0.5'
+                  }`} />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {approvalRequests.map(req => (
+                <div key={req.id} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <AgentIcon agentId={req.plan.agentId} size={20} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-amber-200">{req.message}</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">
+                      {req.plan.agentName} • {req.plan.objective}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleApprovalResponse(req.plan.id, req.id, true)}
+                      className="p-1 rounded bg-green-500/20 hover:bg-green-500/30 text-green-400"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleApprovalResponse(req.plan.id, req.id, false)}
+                      className="p-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-400"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Plans List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {loading ? (
@@ -500,6 +608,7 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
                                 key={update.id}
                                 className={`flex gap-2 text-sm rounded-lg p-2.5 ${
                                   update.type === 'blocker' ? 'bg-red-500/10 border border-red-500/20' :
+                                  update.type === 'approval' ? 'bg-amber-500/10 border border-amber-500/20' :
                                   update.type === 'milestone' ? 'bg-green-500/10 border border-green-500/20' :
                                   update.type === 'completed' ? 'bg-green-500/10 border border-green-500/20' :
                                   'bg-zinc-800/50'
@@ -507,16 +616,19 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
                               >
                                 <div className="shrink-0 mt-0.5">
                                   {update.type === 'blocker' && <WarningCircle className="w-4 h-4 text-red-400" />}
+                                  {update.type === 'approval' && <Seal className="w-4 h-4 text-amber-400" />}
                                   {update.type === 'completed' && <CheckCircle className="w-4 h-4 text-green-400" />}
                                   {update.type === 'milestone' && <Flag className="w-4 h-4 text-green-400" />}
                                   {update.type === 'progress' && <Lightning className="w-4 h-4 text-indigo-400" />}
                                   {update.type === 'note' && <ChatCircleText className="w-4 h-4 text-zinc-400" />}
-                                  {!['blocker', 'completed', 'milestone', 'progress', 'note'].includes(update.type) && (
+                                  {!['blocker', 'approval', 'completed', 'milestone', 'progress', 'note'].includes(update.type) && (
                                     <FileText className="w-4 h-4 text-zinc-500" />
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-zinc-200">{update.message}</p>
+                                  <div className="text-zinc-200 prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:text-zinc-200 prose-headings:font-medium prose-h3:text-sm prose-h2:text-base">
+                                    <ReactMarkdown>{update.message}</ReactMarkdown>
+                                  </div>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className="text-[10px] text-zinc-500 font-mono">
                                       {timeStr}
@@ -526,6 +638,7 @@ Please revise and resubmit your plan via POST /api/plans. Keep the same objectiv
                                     </span>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                       update.type === 'blocker' ? 'bg-red-500/20 text-red-400' :
+                                      update.type === 'approval' ? 'bg-amber-500/20 text-amber-400' :
                                       update.type === 'milestone' ? 'bg-green-500/20 text-green-400' :
                                       update.type === 'completed' ? 'bg-green-500/20 text-green-400' :
                                       update.type === 'progress' ? 'bg-indigo-500/20 text-indigo-400' :

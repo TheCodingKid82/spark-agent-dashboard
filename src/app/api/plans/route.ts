@@ -12,7 +12,7 @@ export interface PlanUpdate {
   id: string;
   timestamp: string;
   message: string;
-  type: 'progress' | 'blocker' | 'completed' | 'milestone' | 'note';
+  type: 'progress' | 'blocker' | 'completed' | 'milestone' | 'note' | 'approval';
 }
 
 export interface Plan {
