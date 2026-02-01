@@ -87,6 +87,11 @@ export function PlansPanel() {
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [requestPrompt, setRequestPrompt] = useState('');
   const [requesting, setRequesting] = useState(false);
+  
+  // Edit plan state
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [editFeedback, setEditFeedback] = useState('');
+  const [sendingEdit, setSendingEdit] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -160,6 +165,44 @@ export function PlansPanel() {
       console.error('Request failed:', error);
     } finally {
       setRequesting(false);
+    }
+  };
+
+  const handleSendEditBack = async () => {
+    if (!editingPlan) return;
+    
+    setSendingEdit(true);
+    try {
+      const message = `**Plan Revision Requested**
+
+Your plan "${editingPlan.objective}" needs changes.
+
+**Feedback:**
+${editFeedback}
+
+Please revise and resubmit your plan via POST /api/plans. Keep the same objective but address the feedback above.`;
+      
+      const res = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'andrew',
+          to: editingPlan.agentId,
+          content: message,
+        }),
+      });
+      
+      if (res.ok) {
+        // Reject the plan
+        await handleAction(editingPlan.id, 'reject', { reason: editFeedback });
+        setEditingPlan(null);
+        setEditFeedback('');
+        alert(`Revision request sent to ${editingPlan.agentName}.`);
+      }
+    } catch (error) {
+      console.error('Send edit failed:', error);
+    } finally {
+      setSendingEdit(false);
     }
   };
 
@@ -414,7 +457,17 @@ export function PlansPanel() {
                           Approve
                         </button>
                         <button
-                          onClick={() => handleAction(plan.id, 'reject', { reason: 'Needs revision' })}
+                          onClick={() => {
+                            setEditingPlan(plan);
+                            setEditFeedback('');
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Edit & Return
+                        </button>
+                        <button
+                          onClick={() => handleAction(plan.id, 'reject', { reason: 'Rejected' })}
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                         >
                           <XCircle className="w-4 h-4" />
@@ -515,6 +568,72 @@ export function PlansPanel() {
                   <FileText className="w-4 h-4" />
                 )}
                 Request Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Plan Modal */}
+      {editingPlan && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-lg p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-amber-400" />
+              Edit & Return Plan
+            </h3>
+            
+            {/* Plan Summary */}
+            <div className="mb-4 p-3 bg-zinc-800/50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <AgentIcon agentId={editingPlan.agentId} size={24} />
+                <span className="font-medium">{editingPlan.agentName}</span>
+              </div>
+              <p className="text-sm text-zinc-300">{editingPlan.objective}</p>
+              {editingPlan.steps.length > 0 && (
+                <div className="mt-2 text-xs text-zinc-500">
+                  {editingPlan.steps.length} steps planned
+                </div>
+              )}
+            </div>
+
+            {/* Feedback */}
+            <div className="mb-6">
+              <label className="text-sm text-zinc-400 mb-2 block">
+                What changes do you want?
+              </label>
+              <textarea
+                value={editFeedback}
+                onChange={(e) => setEditFeedback(e.target.value)}
+                placeholder="e.g., Add more specific metrics, include timeline milestones, consider collaboration with Maia..."
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 resize-none"
+                rows={4}
+                autoFocus
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setEditingPlan(null);
+                  setEditFeedback('');
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendEditBack}
+                disabled={!editFeedback.trim() || sendingEdit}
+                className="flex-1 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {sendingEdit ? (
+                  <ArrowsClockwise className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                Send Back
               </button>
             </div>
           </div>
