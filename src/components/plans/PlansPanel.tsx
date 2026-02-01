@@ -9,11 +9,11 @@ import {
   Play,
   Users,
   Calendar,
-  ChevronDown,
-  ChevronRight,
+  CaretDown,
+  CaretRight,
   Plus,
-  RefreshCw,
-  AlertCircle,
+  ArrowsClockwise,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { AgentIcon } from '@/lib/icons';
 
@@ -147,7 +147,7 @@ export function PlansPanel() {
             onClick={fetchData}
             className="p-2 rounded-lg hover:bg-zinc-800 transition-colors"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <ArrowsClockwise className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
         
@@ -203,7 +203,7 @@ export function PlansPanel() {
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <RefreshCw className="w-6 h-6 animate-spin text-zinc-500" />
+            <ArrowsClockwise className="w-6 h-6 animate-spin text-zinc-500" />
           </div>
         ) : filteredPlans.length === 0 ? (
           <div className="text-center py-8 text-zinc-500">
@@ -260,9 +260,9 @@ export function PlansPanel() {
                       </div>
                     </div>
                     {isExpanded ? (
-                      <ChevronDown className="w-5 h-5 text-zinc-500" />
+                      <CaretDown className="w-5 h-5 text-zinc-500" />
                     ) : (
-                      <ChevronRight className="w-5 h-5 text-zinc-500" />
+                      <CaretRight className="w-5 h-5 text-zinc-500" />
                     )}
                   </div>
                   
@@ -331,7 +331,7 @@ export function PlansPanel() {
                               className="flex gap-2 text-sm bg-zinc-800/30 rounded-lg p-2"
                             >
                               {update.type === 'blocker' ? (
-                                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                <WarningCircle className="w-4 h-4 text-red-400 shrink-0" />
                               ) : update.type === 'completed' ? (
                                 <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
                               ) : (
