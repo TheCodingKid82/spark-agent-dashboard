@@ -301,3 +301,141 @@ export const remove = mutation({
     return { success: true };
   },
 });
+
+// Agent domain keywords for auto-assignment
+const AGENT_DOMAINS: Record<string, { keywords: string[]; priority: number }> = {
+  atlas: {
+    keywords: ["announcements", "whop", "conversion", "churn", "mrr", "paywall", "feature pack", "subscription", "pricing"],
+    priority: 1,
+  },
+  maia: {
+    keywords: ["announcements", "whop", "bug", "fix", "implement", "code", "deploy", "feature", "ui"],
+    priority: 2,
+  },
+  apollo: {
+    keywords: ["booked", "travel", "insider expeditions", "matt", "client", "agency"],
+    priority: 1,
+  },
+  orpheus: {
+    keywords: ["booked", "travel", "bug", "fix", "implement", "client request"],
+    priority: 2,
+  },
+  artemis: {
+    keywords: ["funnels", "funnel builder", "landing page", "ai builder", "whop sellers"],
+    priority: 1,
+  },
+  callisto: {
+    keywords: ["funnels", "implement", "build", "architecture"],
+    priority: 2,
+  },
+  iris: {
+    keywords: ["research", "feedback", "customer", "churn analysis", "competitive", "user insights"],
+    priority: 1,
+  },
+};
+
+function findBestAgent(taskText: string): { agentId: string; score: number } | null {
+  const text = taskText.toLowerCase();
+  const scores: { agentId: string; score: number }[] = [];
+  
+  for (const [agentId, domain] of Object.entries(AGENT_DOMAINS)) {
+    let score = 0;
+    for (const keyword of domain.keywords) {
+      if (text.includes(keyword.toLowerCase())) {
+        score += 10;
+      }
+    }
+    if (domain.priority === 1) score += 5;
+    if (score > 0) scores.push({ agentId, score });
+  }
+  
+  scores.sort((a, b) => b.score - a.score);
+  return scores[0] || null;
+}
+
+// Create task with automatic agent assignment
+export const createWithAutoAssign = mutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+    priority: v.optional(v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("urgent")
+    )),
+    createdBy: v.string(),
+    tags: v.optional(v.array(v.string())),
+    autoAssign: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const taskText = `${args.title} ${args.description || ""}`;
+    
+    // Find best agent if auto-assign enabled
+    let assignedTo: string | undefined = undefined;
+    let status: "inbox" | "assigned" = "inbox";
+    
+    if (args.autoAssign !== false) {
+      const best = findBestAgent(taskText);
+      if (best && best.score >= 10) {
+        assignedTo = best.agentId;
+        status = "assigned";
+      }
+    }
+    
+    // Create the task
+    const taskId = await ctx.db.insert("tasks", {
+      title: args.title,
+      description: args.description,
+      status,
+      priority: args.priority ?? "medium",
+      createdBy: args.createdBy,
+      assignedTo,
+      tags: args.tags,
+    });
+    
+    // Log creation activity
+    await ctx.db.insert("activities", {
+      actorId: args.createdBy,
+      actorType: "human",
+      action: "created_task",
+      targetType: "task",
+      targetId: taskId,
+      metadata: { title: args.title },
+    });
+    
+    // If auto-assigned, log that too and notify
+    if (assignedTo) {
+      await ctx.db.insert("activities", {
+        actorId: "system",
+        actorType: "system",
+        action: "auto_assigned",
+        targetType: "task",
+        targetId: taskId,
+        metadata: { assignedTo, title: args.title },
+      });
+      
+      // Notify the assignee
+      await ctx.db.insert("notifications", {
+        recipientId: assignedTo,
+        senderId: "system",
+        type: "assignment",
+        title: "New Task Auto-Assigned",
+        message: `You've been assigned: ${args.title}`,
+        targetType: "task",
+        targetId: taskId,
+        read: false,
+      });
+      
+      // Auto-subscribe assignee
+      await ctx.db.insert("subscriptions", {
+        subscriberId: assignedTo,
+        targetType: "task",
+        targetId: taskId,
+        autoSubscribed: true,
+      });
+    }
+    
+    return { taskId, assignedTo, status };
+  },
+});

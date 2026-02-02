@@ -45,6 +45,7 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
 export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanbanProps) {
   const tasks = useQuery(api.tasks.getAll, { limit: 500 });
   const createTask = useMutation(api.tasks.create);
+  const createTaskWithAutoAssign = useMutation(api.tasks.createWithAutoAssign);
   const updateTask = useMutation(api.tasks.update);
   
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
@@ -55,16 +56,32 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     setCreating(status);
     
     try {
-      const taskId = await createTask({
-        title: "New task",
-        description: "",
-        status,
-        priority: "medium",
-        createdBy: "henry",
-      });
-      
-      if (taskId) {
-        onTaskSelect?.(taskId);
+      // For inbox tasks, use auto-assign to route to best agent
+      if (status === "inbox") {
+        const result = await createTaskWithAutoAssign({
+          title: "New task",
+          description: "",
+          priority: "medium",
+          createdBy: "andrew",
+          autoAssign: true,
+        });
+        
+        if (result?.taskId) {
+          onTaskSelect?.(result.taskId);
+        }
+      } else {
+        // For other columns, create without auto-assign
+        const taskId = await createTask({
+          title: "New task",
+          description: "",
+          status,
+          priority: "medium",
+          createdBy: "andrew",
+        });
+        
+        if (taskId) {
+          onTaskSelect?.(taskId);
+        }
       }
     } catch (error) {
       console.error("Failed to create task:", error);

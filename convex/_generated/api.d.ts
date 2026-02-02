@@ -10,6 +10,7 @@
 
 import type * as activities from "../activities.js";
 import type * as agents from "../agents.js";
+import type * as assignment from "../assignment.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
 import type * as messages from "../messages.js";
@@ -26,6 +27,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
   agents: typeof agents;
+  assignment: typeof assignment;
   documents: typeof documents;
   http: typeof http;
   messages: typeof messages;
