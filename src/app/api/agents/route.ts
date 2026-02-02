@@ -1,111 +1,30 @@
 import { NextResponse } from 'next/server';
-import { getAllRecords } from '@/lib/provisioning/store';
-import { listServices } from '@/lib/provisioning/railway';
-
-// Services to exclude from agent list (infrastructure, not agents)
-// Case-insensitive matching done in filter below
-const EXCLUDED_SERVICE_PATTERNS = ['command-center', 'postgres', 'browser'];
-
-// Helper to fetch env vars from Railway for a service
-async function getServiceEnvVars(serviceId: string): Promise<Record<string, string>> {
-  const token = process.env.RAILWAY_API_TOKEN;
-  const projectId = process.env.RAILWAY_PROJECT_ID;
-  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID || '7ae32d1d-c474-450b-b7f5-6f16e5d875cd';
-  
-  if (!token || !projectId) return {};
-  
-  try {
-    const res = await fetch('https://backboard.railway.com/graphql/v2', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query: `query($projectId: String!, $serviceId: String!, $environmentId: String!) {
-          variables(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId)
-        }`,
-        variables: { projectId, serviceId, environmentId },
-      }),
-    });
-    const data = await res.json();
-    return data?.data?.variables || {};
-  } catch {
-    return {};
-  }
-}
+import { listAgents } from '@/lib/agents/registry';
 
 /**
- * GET /api/agents — List all provisioned agents with live status
- * 
- * Primary source of truth: Railway services
- * Secondary enrichment: local provisioning store + Railway env vars
+ * GET /api/agents — List agents for the single-gateway, multi-session architecture.
+ *
+ * Source of truth: agent-roster.json (optionally overridden by env vars).
  */
 export async function GET() {
   try {
-    // Get live services from Railway (source of truth)
-    const railwayResult = await listServices();
-    const railwayServices = railwayResult.success ? (railwayResult.data || []) : [];
-
-    // Get store records for additional metadata
-    const records = getAllRecords();
-    const recordsByServiceId = new Map(
-      records.filter(r => r.railwayServiceId).map(r => [r.railwayServiceId, r])
-    );
-    const recordsByName = new Map(
-      records.map(r => [r.agentName.toLowerCase().replace(/\s+/g, '-'), r])
-    );
-
-    // Build agent list from Railway services
-    const agentPromises = railwayServices
-      .filter(svc => !EXCLUDED_SERVICE_PATTERNS.some(pattern => svc.name.toLowerCase().includes(pattern)))
-      .map(async (svc) => {
-        // Try to find matching store record
-        const record = recordsByServiceId.get(svc.id) || recordsByName.get(svc.name);
-        
-        // Get values from store
-        let gatewayToken = record?.gatewayToken;
-        let agentName = record?.agentName;
-        let agentRole = record?.agentRole;
-        let agentPurpose = record?.agentPurpose;
-        
-        // Fetch from Railway env vars if missing critical fields or role is 'custom'
-        const needsEnvVars = !gatewayToken || !agentName || !agentRole || agentRole === 'custom';
-        if (needsEnvVars) {
-          const envVars = await getServiceEnvVars(svc.id);
-          gatewayToken = gatewayToken || envVars.CLAWDBOT_GATEWAY_TOKEN;
-          agentName = agentName || envVars.AGENT_NAME || svc.name.charAt(0).toUpperCase() + svc.name.slice(1);
-          // Prefer env var role over 'custom'
-          if (!agentRole || agentRole === 'custom') {
-            agentRole = envVars.AGENT_ROLE || record?.roleTemplate;
-          }
-          agentPurpose = agentPurpose || envVars.AGENT_PURPOSE;
-        }
-        
-        return {
-          agentId: record?.agentId || svc.name,
-          agentName,
-          agentRole: agentRole || 'Agent',
-          agentPurpose,
-          roleTemplate: record?.roleTemplate,
-          railwayServiceId: svc.id,
-          railwayProjectId: process.env.RAILWAY_PROJECT_ID,
-          domain: svc.domain,
-          gatewayUrl: svc.domain ? `https://${svc.domain}` : undefined,
-          gatewayToken,
-          liveStatus: svc.status,
-          provisionedAt: record?.provisionedAt,
-          status: record?.status || (svc.status === 'SUCCESS' ? 'complete' : 'unknown'),
-        };
-      });
-
-    const agents = await Promise.all(agentPromises);
+    const agents = listAgents().map(a => ({
+      agentId: a.id,
+      agentName: a.name,
+      agentRole: a.role,
+      agentPurpose: a.purpose,
+      emoji: a.emoji,
+      sessionKey: a.sessionKey,
+      heartbeatCron: a.heartbeatCron,
+      status: 'configured',
+      liveStatus: 'UNKNOWN',
+    }));
 
     return NextResponse.json({
       success: true,
       agents,
       totalCount: agents.length,
-      activeCount: agents.filter(a => a.liveStatus === 'SUCCESS').length,
+      activeCount: agents.length,
     });
   } catch (error) {
     return NextResponse.json(

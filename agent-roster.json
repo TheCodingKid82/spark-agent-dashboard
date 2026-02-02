@@ -1,0 +1,71 @@
+{
+  "gateway": {
+    "url": "",
+    "token": ""
+  },
+  "agents": [
+    {
+      "id": "atlas",
+      "name": "Atlas",
+      "emoji": "🗺️",
+      "role": "Head of Announcements",
+      "purpose": "Own Announcements app operations and improvements",
+      "sessionKey": "agent:atlas:main",
+      "heartbeatCron": "2,17,32,47 * * * *"
+    },
+    {
+      "id": "maia",
+      "name": "Maia",
+      "emoji": "⭐",
+      "role": "Engineer (Announcements)",
+      "purpose": "Implement Announcements app fixes and experiments",
+      "sessionKey": "agent:maia:main",
+      "heartbeatCron": "4,19,34,49 * * * *"
+    },
+    {
+      "id": "apollo",
+      "name": "Apollo",
+      "emoji": "☀️",
+      "role": "Head of Agency",
+      "purpose": "Handle client projects (Booked.Travel / Insider Expeditions)",
+      "sessionKey": "agent:apollo:main",
+      "heartbeatCron": "6,21,36,51 * * * *"
+    },
+    {
+      "id": "orpheus",
+      "name": "Orpheus",
+      "emoji": "🎵",
+      "role": "Engineer (Client Projects)",
+      "purpose": "Implement Booked.Travel fixes and client requests",
+      "sessionKey": "agent:orpheus:main",
+      "heartbeatCron": "8,23,38,53 * * * *"
+    },
+    {
+      "id": "artemis",
+      "name": "Artemis",
+      "emoji": "🏹",
+      "role": "Head of Funnels",
+      "purpose": "Own Funnels app strategy and delivery",
+      "sessionKey": "agent:artemis:main",
+      "heartbeatCron": "10,25,40,55 * * * *"
+    },
+    {
+      "id": "callisto",
+      "name": "Callisto",
+      "emoji": "🐻",
+      "role": "Engineer (Funnels)",
+      "purpose": "Implement Funnels app features and fixes",
+      "sessionKey": "agent:callisto:main",
+      "heartbeatCron": "12,27,42,57 * * * *"
+    },
+    {
+      "id": "iris",
+      "name": "Iris",
+      "emoji": "🌈",
+      "role": "Customer Intelligence",
+      "purpose": "Research customers, summarize feedback, identify churn risks",
+      "sessionKey": "agent:iris:main",
+      "heartbeatCron": "14,29,44,59 * * * *"
+    }
+  ]
+}

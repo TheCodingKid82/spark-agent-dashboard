@@ -181,6 +181,26 @@ export async function POST(request: Request) {
         // Wait a moment for the gateway to fully start
         await new Promise(resolve => setTimeout(resolve, 5000));
 
+        // Ensure AGENT_DIRECTORY.md is included (helps agents discover teammates)
+        if (!workspaceFiles['AGENT_DIRECTORY.md']) {
+          try {
+            const allAgents = getAllRecords();
+            allAgents.push(record);
+            workspaceFiles['AGENT_DIRECTORY.md'] = generateAgentDirectoryMd(
+              allAgents
+                .filter(a => a.railwayServiceId)
+                .map(a => ({
+                  name: a.agentName,
+                  role: (a as unknown as Record<string, unknown>).agentRole as string || 'Agent',
+                  domain: a.domain,
+                  status: a.railwayDeploymentStatus || 'unknown',
+                }))
+            );
+          } catch {
+            // Non-fatal
+          }
+        }
+
         const pushResult = await pushWorkspaceFiles(
           record.gatewayUrl,
           record.gatewayToken,
@@ -228,7 +248,7 @@ export async function POST(request: Request) {
           name: agentName,
           role: agentRole,
           purpose: agentPurpose,
-          gatewayUrl: record.domain || '',
+          gatewayUrl: record.domain ? `https://${record.domain}` : '',
           gatewayToken: record.gatewayToken,
           status: record.healthStatus === 'healthy' ? 'online' : 'offline',
           capabilities: roleTemplate ? [roleTemplate] : [],
@@ -258,11 +278,15 @@ export async function POST(request: Request) {
             status: a.railwayDeploymentStatus || 'unknown',
           }))
       );
+
+      // Attach to workspace files so it gets pushed to the newly provisioned agent
+      workspaceFiles['AGENT_DIRECTORY.md'] = directoryMd;
+
       record.agentDirectoryUpdated = true;
       steps.push({
         id: 'agent-directory',
         status: 'complete',
-        message: 'Agent directory updated',
+        message: 'Agent directory generated (will be pushed to agent as AGENT_DIRECTORY.md)',
       });
     } catch (error) {
       steps.push({ id: 'agent-directory', status: 'error', message: String(error) });

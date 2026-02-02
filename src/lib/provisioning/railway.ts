@@ -107,7 +107,8 @@ function generateClawdbotConfig(gatewayToken: string, browserUrl?: string): stri
       auth: { mode: "token", token: gatewayToken },
       http: {
         endpoints: {
-          responses: { enabled: true }
+          responses: { enabled: true },
+          chatCompletions: { enabled: true }
         }
       }
     },
@@ -479,96 +480,100 @@ export async function provisionFullStack(
 
     const domain = domainData.serviceDomainCreate.domain;
 
-    // Step 7: Create browser service for this agent
+    // Step 7: (Optional) Create browser service for this agent
+    // NOTE: This was useful when we relied on browserless/chrome, but we may prefer agent-browser now.
+    // Set RAILWAY_CREATE_BROWSER_SERVICE=true to enable.
     let browserDomain = '';
-    try {
-      const browserServiceName = `${serviceName}-browser`;
-      
-      // Create browserless service
-      const browserCreateData = await railwayQuery(`
-        mutation($input: ServiceCreateInput!) {
-          serviceCreate(input: $input) { id name }
-        }
-      `, {
-        input: {
-          projectId: config.projectId,
-          name: browserServiceName,
-          source: { image: 'browserless/chrome' },
-        },
-      }) as { serviceCreate: { id: string; name: string } };
+    if (process.env.RAILWAY_CREATE_BROWSER_SERVICE === 'true') {
+      try {
+        const browserServiceName = `${serviceName}-browser`;
 
-      const browserServiceId = browserCreateData.serviceCreate.id;
-
-      // Set env vars for browserless (with persistence)
-      await railwayQuery(`
-        mutation($input: VariableCollectionUpsertInput!) {
-          variableCollectionUpsert(input: $input)
-        }
-      `, {
-        input: {
-          projectId: config.projectId,
-          serviceId: browserServiceId,
-          environmentId: config.environmentId,
-          variables: {
-            PORT: '3000',
-            WORKSPACE_DIR: '/data',
-            KEEP_ALIVE: 'true',
-            CONNECTION_TIMEOUT: '600000',
-            PREBOOT_CHROME: 'true',
+        // Create browserless service
+        const browserCreateData = await railwayQuery(`
+          mutation($input: ServiceCreateInput!) {
+            serviceCreate(input: $input) { id name }
+          }
+        `, {
+          input: {
+            projectId: config.projectId,
+            name: browserServiceName,
+            source: { image: 'browserless/chrome' },
           },
-        },
-      });
+        }) as { serviceCreate: { id: string; name: string } };
 
-      // Create volume for persistent browser data (logins, cookies, etc.)
-      await railwayQuery(`
-        mutation($input: VolumeCreateInput!) {
-          volumeCreate(input: $input) { id }
-        }
-      `, {
-        input: {
-          projectId: config.projectId,
-          serviceId: browserServiceId,
-          environmentId: config.environmentId,
-          mountPath: '/data',
-        },
-      });
+        const browserServiceId = browserCreateData.serviceCreate.id;
 
-      // Create domain for browser service
-      const browserDomainData = await railwayQuery(`
-        mutation($input: ServiceDomainCreateInput!) {
-          serviceDomainCreate(input: $input) { domain }
-        }
-      `, {
-        input: {
-          serviceId: browserServiceId,
-          environmentId: config.environmentId,
-        },
-      }) as { serviceDomainCreate: { domain: string } };
-
-      browserDomain = browserDomainData.serviceDomainCreate.domain;
-
-      // Update agent with browser endpoint AND regenerate config with browser URL
-      const browserUrl = `https://${browserDomain}`;
-      const updatedConfigB64 = generateClawdbotConfig(gatewayToken, browserUrl);
-      
-      await railwayQuery(`
-        mutation($input: VariableCollectionUpsertInput!) {
-          variableCollectionUpsert(input: $input)
-        }
-      `, {
-        input: {
-          projectId: config.projectId,
-          serviceId,
-          environmentId: config.environmentId,
-          variables: { 
-            BROWSER_WS_ENDPOINT: `wss://${browserDomain}`,
-            CLAWDBOT_CONFIG_B64: updatedConfigB64,  // Update config with browser settings
+        // Set env vars for browserless (with persistence)
+        await railwayQuery(`
+          mutation($input: VariableCollectionUpsertInput!) {
+            variableCollectionUpsert(input: $input)
+          }
+        `, {
+          input: {
+            projectId: config.projectId,
+            serviceId: browserServiceId,
+            environmentId: config.environmentId,
+            variables: {
+              PORT: '3000',
+              WORKSPACE_DIR: '/data',
+              KEEP_ALIVE: 'true',
+              CONNECTION_TIMEOUT: '600000',
+              PREBOOT_CHROME: 'true',
+            },
           },
-        },
-      });
-    } catch (browserError) {
-      console.error('Browser service creation failed:', browserError);
-      // Continue without browser - agent will still work, just no browser
+        });
+
+        // Create volume for persistent browser data (logins, cookies, etc.)
+        await railwayQuery(`
+          mutation($input: VolumeCreateInput!) {
+            volumeCreate(input: $input) { id }
+          }
+        `, {
+          input: {
+            projectId: config.projectId,
+            serviceId: browserServiceId,
+            environmentId: config.environmentId,
+            mountPath: '/data',
+          },
+        });
+
+        // Create domain for browser service
+        const browserDomainData = await railwayQuery(`
+          mutation($input: ServiceDomainCreateInput!) {
+            serviceDomainCreate(input: $input) { domain }
+          }
+        `, {
+          input: {
+            serviceId: browserServiceId,
+            environmentId: config.environmentId,
+          },
+        }) as { serviceDomainCreate: { domain: string } };
+
+        browserDomain = browserDomainData.serviceDomainCreate.domain;
+
+        // Update agent with browser endpoint AND regenerate config with browser URL
+        const browserUrl = `https://${browserDomain}`;
+        const updatedConfigB64 = generateClawdbotConfig(gatewayToken, browserUrl);
+
+        await railwayQuery(`
+          mutation($input: VariableCollectionUpsertInput!) {
+            variableCollectionUpsert(input: $input)
+          }
+        `, {
+          input: {
+            projectId: config.projectId,
+            serviceId,
+            environmentId: config.environmentId,
+            variables: {
+              BROWSER_WS_ENDPOINT: `wss://${browserDomain}`,
+              CLAWDBOT_CONFIG_B64: updatedConfigB64, // Update config with browser settings
+            },
+          },
+        });
+      } catch (browserError) {
+        console.error('Browser service creation failed:', browserError);
+        // Continue without browser - agent will still work, just no browser
+      }
     }
 
     // Step 8: Trigger deployment (env vars are already set!)
