@@ -146,7 +146,7 @@ export function DocumentPanel({ taskId, onDocumentSelect }: DocumentPanelProps) 
           <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
             <span>v{selectedDoc.version}</span>
             <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[selectedDoc.status]}`}>
-              {selectedDoc.status.replace("_", " ")}
+              {(selectedDoc.status || "draft").replace("_", " ")}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
@@ -219,9 +219,9 @@ export function DocumentPanel({ taskId, onDocumentSelect }: DocumentPanelProps) 
                     </div>
                   </div>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${STATUS_COLORS[doc.status]}`}
+                    className={`px-2 py-1 rounded-full text-xs ${STATUS_COLORS[doc.status || "draft"]}`}
                   >
-                    {doc.status.replace("_", " ")}
+                    {(doc.status || "draft").replace("_", " ")}
                   </span>
                 </div>
               </div>
