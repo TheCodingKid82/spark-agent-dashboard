@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       `;
     }
     
-    const result = activities.map(a => ({
+    const result = (activities as any[]).map((a: any) => ({
       agentId: a.agent_id,
       lastDmActivity: a.last_dm_activity,
       lastApiCall: a.last_api_call,
