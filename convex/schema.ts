@@ -58,8 +58,7 @@ export default defineSchema({
     metadata: v.optional(v.any()),
   })
     .index("by_actor", ["actorId"])
-    .index("by_target", ["targetType", "targetId"])
-    .index("by_time", ["_creationTime"]),
+    .index("by_target", ["targetType", "targetId"]),
 
   documents: defineTable({
     title: v.string(),
