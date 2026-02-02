@@ -17,7 +17,7 @@ import {
   Users,
   Plus,
   Search,
-  Settings
+  Gear
 } from "@phosphor-icons/react";
 
 // Agent from roster
@@ -150,7 +150,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <NotificationBell />
             <button className="p-2 hover:bg-zinc-800 rounded-lg">
-              <Settings className="w-5 h-5 text-zinc-400" />
+              <Gear className="w-5 h-5 text-zinc-400" />
             </button>
           </div>
         </header>
