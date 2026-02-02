@@ -84,8 +84,8 @@ export function DocumentPanel({ taskId, onDocumentSelect }: DocumentPanelProps) 
 
   const filteredDocuments = documents.filter(
     (doc) =>
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.content.toLowerCase().includes(searchQuery.toLowerCase())
+      (doc.title?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (doc.content?.toLowerCase() || "").includes(searchQuery.toLowerCase())
   );
 
   if (loading) {
