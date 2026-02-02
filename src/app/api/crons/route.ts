@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         VALUES (${jobId}, ${job.agent_id}, 'running')
         RETURNING id
       `;
-      const runId = runResult[0]?.id;
+      const runId = (runResult as any[])[0]?.id;
       
       // Log activity
       await sql`
