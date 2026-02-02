@@ -1,4 +1,4 @@
-// Stub: Chat store migrated to Convex
+// Stub: Chat store migrated to Convex (v2)
 export async function saveMessage(_message?: any) {}
 export async function getMessages(_agentId?: string, _limit?: number) { return []; }
 export async function getConversation(_agentId?: string, _userId?: string) { return { messages: [] }; }
