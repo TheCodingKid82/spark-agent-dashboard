@@ -100,10 +100,40 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
     try {
       await updateTask({
         id: task._id,
-        updatedBy: "henry",
+        updatedBy: "andrew",
         title: editTitle,
         description: editDescription,
       });
+      
+      // If task is unassigned, use gateway to route it
+      if (!task.assignedTo && task.status === "inbox") {
+        try {
+          const routeRes = await fetch("/api/tasks/route-task", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: editTitle,
+              description: editDescription,
+              taskId: task._id,
+            }),
+          });
+          
+          if (routeRes.ok) {
+            const routeData = await routeRes.json();
+            if (routeData.assignedTo) {
+              await updateTask({
+                id: task._id,
+                updatedBy: "system",
+                assignedTo: routeData.assignedTo,
+                status: "assigned",
+              });
+            }
+          }
+        } catch (routeErr) {
+          console.warn("Gateway routing unavailable:", routeErr);
+        }
+      }
+      
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update task:", error);

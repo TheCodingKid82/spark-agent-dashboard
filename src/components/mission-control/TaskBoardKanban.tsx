@@ -45,7 +45,6 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
 export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanbanProps) {
   const tasks = useQuery(api.tasks.getAll, { limit: 500 });
   const createTask = useMutation(api.tasks.create);
-  const createTaskWithAutoAssign = useMutation(api.tasks.createWithAutoAssign);
   const updateTask = useMutation(api.tasks.update);
   
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
@@ -56,31 +55,45 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     setCreating(status);
     
     try {
-      // For inbox tasks, use auto-assign to route to best agent
-      if (status === "inbox") {
-        const result = await createTaskWithAutoAssign({
-          title: "New task",
-          description: "",
-          priority: "medium",
-          createdBy: "andrew",
-          autoAssign: true,
-        });
+      // Create task first
+      const taskId = await createTask({
+        title: "New task",
+        description: "",
+        status: "inbox", // Always start in inbox
+        priority: "medium",
+        createdBy: "andrew",
+      });
+      
+      if (taskId) {
+        onTaskSelect?.(taskId);
         
-        if (result?.taskId) {
-          onTaskSelect?.(result.taskId);
-        }
-      } else {
-        // For other columns, create without auto-assign
-        const taskId = await createTask({
-          title: "New task",
-          description: "",
-          status,
-          priority: "medium",
-          createdBy: "andrew",
-        });
-        
-        if (taskId) {
-          onTaskSelect?.(taskId);
+        // Use gateway to intelligently route the task
+        try {
+          const routeRes = await fetch("/api/tasks/route-task", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "New task",
+              description: "",
+              taskId: taskId,
+            }),
+          });
+          
+          if (routeRes.ok) {
+            const routeData = await routeRes.json();
+            if (routeData.assignedTo) {
+              // Update task with assignment
+              await updateTask({
+                id: taskId,
+                updatedBy: "system",
+                assignedTo: routeData.assignedTo,
+                status: "assigned",
+              });
+              console.log(`Task routed to ${routeData.agentName}: ${routeData.reason}`);
+            }
+          }
+        } catch (routeError) {
+          console.warn("Gateway routing unavailable, task stays in inbox:", routeError);
         }
       }
     } catch (error) {
