@@ -23,19 +23,19 @@ interface TaskBoardKanbanProps {
   selectedTaskId?: string | null;
 }
 
-const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
-  { id: "inbox", label: "Inbox", color: "bg-gray-100" },
-  { id: "assigned", label: "Assigned", color: "bg-blue-50" },
-  { id: "in_progress", label: "In Progress", color: "bg-amber-50" },
-  { id: "review", label: "Review", color: "bg-purple-50" },
-  { id: "done", label: "Done", color: "bg-green-50" },
+const COLUMNS: { id: TaskStatus; label: string }[] = [
+  { id: "inbox", label: "Inbox" },
+  { id: "assigned", label: "Assigned" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "review", label: "Review" },
+  { id: "done", label: "Done" },
 ];
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: "bg-gray-200 text-gray-700",
-  medium: "bg-blue-200 text-blue-700",
-  high: "bg-amber-200 text-amber-700",
-  urgent: "bg-red-200 text-red-700",
+  low: "bg-zinc-800 text-zinc-300 border-zinc-700",
+  medium: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
+  high: "bg-amber-500/10 text-amber-300 border-amber-500/20",
+  urgent: "bg-red-500/10 text-red-300 border-red-500/20",
 };
 
 export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanbanProps) {
@@ -103,52 +103,52 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-600"></div>
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-x-auto">
-      <div className="flex gap-4 min-w-max pb-4">
+      <div className="flex gap-4 min-w-max pb-4 px-4">
         {COLUMNS.map((column) => {
           const columnTasks = tasks.filter((t) => t.status === column.id);
           return (
             <div
               key={column.id}
-              className={`w-72 rounded-lg ${column.color} p-3`}
+              className="w-80 rounded-xl bg-zinc-900/60 border border-zinc-800/70 backdrop-blur-sm"
               onDragOver={(e) => handleDragOver(e, column.id)}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-gray-700">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/70">
+                <h3 className="font-medium text-zinc-100">
                   {column.label}
-                  <span className="ml-2 text-xs text-gray-500">
-                    ({columnTasks.length})
+                  <span className="ml-2 text-xs text-zinc-500">
+                    {columnTasks.length}
                   </span>
                 </h3>
-                <button className="p-1 hover:bg-white/50 rounded">
-                  <Plus className="w-4 h-4 text-gray-500" />
+                <button className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors">
+                  <Plus className="w-4 h-4 text-zinc-400" />
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 p-3">
                 {columnTasks.map((task) => (
                   <div
                     key={task.id}
                     draggable
                     onDragStart={() => handleDragStart(task.id)}
                     onClick={() => onTaskSelect?.(task.id)}
-                    className={`bg-white p-3 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow ${
-                      selectedTaskId === task.id ? "ring-2 ring-blue-500" : ""
+                    className={`rounded-lg border bg-zinc-950/40 p-3 cursor-pointer transition-colors hover:bg-zinc-900/60 hover:border-zinc-700 ${
+                      selectedTaskId === task.id ? "border-indigo-500/50 ring-1 ring-indigo-500/30" : "border-zinc-800/80"
                     }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <h4 className="font-medium text-sm text-gray-900 line-clamp-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-medium text-sm text-zinc-100 leading-snug line-clamp-2">
                         {task.title}
                       </h4>
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
+                        className={`text-[11px] px-2 py-0.5 rounded-full border ${
                           PRIORITY_COLORS[task.priority]
                         }`}
                       >
@@ -157,7 +157,7 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
                     </div>
 
                     {task.description && (
-                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                      <p className="text-xs text-zinc-400 mt-2 line-clamp-2">
                         {task.description}
                       </p>
                     )}
@@ -165,19 +165,19 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center gap-2">
                         {task.assignedTo && (
-                          <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs">
+                          <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] text-zinc-200">
                             {task.assignedTo.charAt(0).toUpperCase()}
                           </div>
                         )}
                         {task.dueDate && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400">
+                          <span className="flex items-center gap-1 text-xs text-zinc-500">
                             <Calendar className="w-3 h-3" />
                             {formatDate(task.dueDate)}
                           </span>
                         )}
                       </div>
                       {task.tags && task.tags.length > 0 && (
-                        <Tag className="w-3 h-3 text-gray-400" />
+                        <Tag className="w-3 h-3 text-zinc-500" />
                       )}
                     </div>
                   </div>

@@ -56,25 +56,26 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="h-screen flex bg-zinc-950">
+    <div className="h-screen flex bg-zinc-950 grid-bg">
       {/* Sidebar */}
-      <aside className="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+      <aside className="w-60 bg-zinc-950/60 backdrop-blur-xl border-r border-zinc-800/70 flex flex-col">
         {/* Logo */}
-        <div className="p-4 border-b border-zinc-800">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Zap className="w-6 h-6 text-indigo-400" />
+        <div className="px-4 py-4 border-b border-zinc-800/70">
+          <h1 className="text-sm font-semibold text-zinc-100 flex items-center gap-2 tracking-wide">
+            <Zap className="w-4 h-4 text-indigo-300" />
             Mission Control
           </h1>
+          <p className="text-xs text-zinc-500 mt-1">Spark Studio ops console</p>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-3 space-y-1">
           <button
             onClick={() => setActiveTab('board')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              activeTab === 'board' 
-                ? 'bg-indigo-600 text-white' 
-                : 'text-zinc-400 hover:bg-zinc-800'
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border ${
+              activeTab === 'board'
+                ? 'bg-indigo-600/20 text-zinc-100 border-indigo-500/20'
+                : 'text-zinc-400 border-transparent hover:bg-zinc-900/60 hover:border-zinc-800/80'
             }`}
           >
             <LayoutGrid className="w-4 h-4" />
@@ -82,10 +83,10 @@ export default function Dashboard() {
           </button>
           <button
             onClick={() => setActiveTab('activity')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              activeTab === 'activity' 
-                ? 'bg-indigo-600 text-white' 
-                : 'text-zinc-400 hover:bg-zinc-800'
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border ${
+              activeTab === 'activity'
+                ? 'bg-indigo-600/20 text-zinc-100 border-indigo-500/20'
+                : 'text-zinc-400 border-transparent hover:bg-zinc-900/60 hover:border-zinc-800/80'
             }`}
           >
             <Zap className="w-4 h-4" />
@@ -93,10 +94,10 @@ export default function Dashboard() {
           </button>
           <button
             onClick={() => setActiveTab('documents')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              activeTab === 'documents' 
-                ? 'bg-indigo-600 text-white' 
-                : 'text-zinc-400 hover:bg-zinc-800'
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border ${
+              activeTab === 'documents'
+                ? 'bg-indigo-600/20 text-zinc-100 border-indigo-500/20'
+                : 'text-zinc-400 border-transparent hover:bg-zinc-900/60 hover:border-zinc-800/80'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -105,8 +106,8 @@ export default function Dashboard() {
         </nav>
 
         {/* Agents List */}
-        <div className="p-4 border-t border-zinc-800">
-          <h3 className="text-xs font-medium text-zinc-500 uppercase mb-3 flex items-center gap-2">
+        <div className="p-3 border-t border-zinc-800/70">
+          <h3 className="text-xs font-medium text-zinc-500 uppercase mb-2 flex items-center gap-2 tracking-wider">
             <Users className="w-3 h-3" />
             Agents
           </h3>
@@ -135,14 +136,14 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="h-14 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4">
+        <header className="h-14 bg-zinc-950/60 backdrop-blur-xl border-b border-zinc-800/70 flex items-center justify-between px-4">
           <div className="flex items-center gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
               <input
                 type="text"
-                placeholder="Search tasks, agents, documents..."
-                className="bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-4 py-1.5 text-sm text-white placeholder-zinc-500 w-80"
+                placeholder="Search…"
+                className="bg-zinc-950/40 border border-zinc-800 rounded-lg pl-10 pr-4 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 w-72 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               />
             </div>
           </div>
@@ -164,11 +165,11 @@ export default function Dashboard() {
           )}
           {activeTab === 'activity' && (
             <div className="h-full p-4">
-              <div className="h-full bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-                <div className="p-4 border-b border-zinc-800">
-                  <h2 className="font-semibold text-white flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-yellow-400" />
-                    Activity Feed
+              <div className="h-full bg-zinc-950/40 rounded-xl border border-zinc-800/70 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-800/70">
+                  <h2 className="font-semibold text-zinc-100 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-indigo-300" />
+                    Activity
                   </h2>
                 </div>
                 <ActivityFeed />
@@ -177,7 +178,15 @@ export default function Dashboard() {
           )}
           {activeTab === 'documents' && (
             <div className="h-full p-4">
-              <DocumentPanel />
+              <div className="h-full bg-zinc-950/40 rounded-xl border border-zinc-800/70 overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-800/70">
+                  <h2 className="font-semibold text-zinc-100 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-indigo-300" />
+                    Documents
+                  </h2>
+                </div>
+                <DocumentPanel />
+              </div>
             </div>
           )}
         </div>
