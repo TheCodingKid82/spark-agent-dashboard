@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, Plus, MagnifyingGlass, Clock, CheckCircle, PencilSimple } from "@phosphor-icons/react";
+import { FileText, Plus, Search, Clock, CheckCircle, Pencil } from "lucide-react";
 
 type DocumentStatus = "draft" | "in_review" | "approved" | "archived";
 type ContentType = "markdown" | "text" | "json";
@@ -118,7 +118,7 @@ export function DocumentPanel({ taskId, onDocumentSelect }: DocumentPanelProps) 
                 }}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
               >
-                <PencilSimple className="w-4 h-4" />
+                <Pencil className="w-4 h-4" />
                 Edit
               </button>
             ) : (
@@ -176,7 +176,7 @@ export function DocumentPanel({ taskId, onDocumentSelect }: DocumentPanelProps) 
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <div className="relative flex-1 max-w-md">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search documents..."

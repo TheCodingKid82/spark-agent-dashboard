@@ -10,15 +10,15 @@ import {
 } from "@/components/mission-control";
 import { AgentIcon } from "@/lib/icons";
 import { 
-  Lightning, 
+  Zap, 
   LayoutGrid, 
   FileText, 
   Bell,
   Users,
   Plus,
   Search,
-  Gear
-} from "@phosphor-icons/react";
+  Settings
+} from "lucide-react";
 
 // Agent from roster
 interface Agent {
@@ -62,7 +62,7 @@ export default function Dashboard() {
         {/* Logo */}
         <div className="p-4 border-b border-zinc-800">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Lightning className="w-6 h-6 text-indigo-400" weight="fill" />
+            <Zap className="w-6 h-6 text-indigo-400" />
             Mission Control
           </h1>
         </div>
@@ -88,7 +88,7 @@ export default function Dashboard() {
                 : 'text-zinc-400 hover:bg-zinc-800'
             }`}
           >
-            <Lightning className="w-4 h-4" />
+            <Zap className="w-4 h-4" />
             Activity Feed
           </button>
           <button
@@ -150,7 +150,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <NotificationBell />
             <button className="p-2 hover:bg-zinc-800 rounded-lg">
-              <Gear className="w-5 h-5 text-zinc-400" />
+              <Settings className="w-5 h-5 text-zinc-400" />
             </button>
           </div>
         </header>
@@ -168,7 +168,7 @@ export default function Dashboard() {
               <div className="h-full bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
                 <div className="p-4 border-b border-zinc-800">
                   <h2 className="font-semibold text-white flex items-center gap-2">
-                    <Lightning className="w-5 h-5 text-yellow-400" />
+                    <Zap className="w-5 h-5 text-yellow-400" />
                     Activity Feed
                   </h2>
                 </div>

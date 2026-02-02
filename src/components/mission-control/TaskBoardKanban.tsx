@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Calendar, Tag, MoreHorizontal } from "@phosphor-icons/react";
+import { Plus, Calendar, Tag, MoreHorizontal } from "lucide-react";
 
 type TaskStatus = "inbox" | "assigned" | "in_progress" | "review" | "done";
 type TaskPriority = "low" | "medium" | "high" | "urgent";

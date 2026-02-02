@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lightning, Chat, FileText, CheckCircle, Clock, User } from "@phosphor-icons/react";
+import { Zap, MessageSquare, FileText, CheckCircle, Clock, User } from "lucide-react";
 
 interface Activity {
   id: string;
@@ -48,10 +48,10 @@ export function ActivityFeed({ limit = 50, showFilter = true }: ActivityFeedProp
 
   function getActivityIcon(action: string) {
     if (action.includes("task")) return <CheckCircle className="w-4 h-4" />;
-    if (action.includes("message")) return <Chat className="w-4 h-4" />;
+    if (action.includes("message")) return <MessageSquare className="w-4 h-4" />;
     if (action.includes("document")) return <FileText className="w-4 h-4" />;
     if (action.includes("login")) return <User className="w-4 h-4" />;
-    return <Lightning className="w-4 h-4" />;
+    return <Zap className="w-4 h-4" />;
   }
 
   function formatTime(timestamp: number) {

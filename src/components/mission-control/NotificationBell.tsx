@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { 
   Bell, 
   Check,
-  At,
+  AtSign,
   UserPlus,
-  ChatCircle,
+  MessageCircle,
   ArrowRight,
   X
-} from '@phosphor-icons/react';
+} from 'lucide-react';
 import { AgentIcon } from '@/lib/icons';
 
 interface Notification {
@@ -30,9 +30,9 @@ interface NotificationBellProps {
 }
 
 const TYPE_ICONS = {
-  mention: <At className="w-4 h-4 text-pink-400" />,
+  mention: <AtSign className="w-4 h-4 text-pink-400" />,
   assignment: <UserPlus className="w-4 h-4 text-cyan-400" />,
-  comment: <ChatCircle className="w-4 h-4 text-purple-400" />,
+  comment: <MessageCircle className="w-4 h-4 text-purple-400" />,
   status_change: <ArrowRight className="w-4 h-4 text-orange-400" />,
   system: <Bell className="w-4 h-4 text-zinc-400" />,
 };
