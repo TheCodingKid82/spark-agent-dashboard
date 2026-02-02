@@ -1,686 +1,196 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  BackgroundVariant,
-  type Node,
-  type Edge,
-  type NodeTypes,
-  type EdgeMouseHandler,
-  MarkerType,
-  ConnectionMode,
-} from "@xyflow/react";
-import type { Agent } from "@/types/agent";
-import AgentNode from "./AgentNode";
-import TopBar from "./TopBar";
-import Sidebar from "./Sidebar";
-import DetailPanel from "./DetailPanel";
-import AddAgentModal from "./AddAgentModal";
-import ChatPanel from "./chat/ChatPanel";
-import MeetingScheduler from "./chat/MeetingScheduler";
-import UpcomingMeetings from "./chat/UpcomingMeetings";
-import WhoAreYouModal, { getUserIdentity, type UserIdentity } from "./WhoAreYouModal";
-import GoalsPanel from "./goals/GoalsPanel";
-import { PlansPanel } from "./plans/PlansPanel";
-import { StatusReportsPanel } from "./status/StatusReportsPanel";
-import { ActivityPanel } from "./activity/ActivityPanel";
-import { HeartbeatsPanel } from "./heartbeats/HeartbeatsPanel";
-import { CronsPanel } from "./crons/CronsPanel";
-import { Target, FileText, ChartLine, WaveSquare, Heartbeat, Timer } from "@phosphor-icons/react";
+import { useState, useEffect } from "react";
+import { 
+  ActivityFeed, 
+  TaskBoardKanban, 
+  TaskDetailView,
+  DocumentPanel, 
+  NotificationBell 
+} from "@/components/mission-control";
+import { AgentIcon } from "@/lib/icons";
+import { 
+  Lightning, 
+  LayoutGrid, 
+  FileText, 
+  Bell,
+  Users,
+  Plus,
+  Search,
+  Settings
+} from "@phosphor-icons/react";
 
-const nodeTypes: NodeTypes = {
-  agent: AgentNode as unknown as NodeTypes["agent"],
-};
-
-function getDmChatId(agentA: string, agentB: string): string {
-  const sorted = [agentA, agentB].sort();
-  return `dm-${sorted[0]}-${sorted[1]}`;
+// Agent from roster
+interface Agent {
+  id: string;
+  name: string;
+  role: string;
+  emoji?: string;
+  status?: string;
+  reports_to?: string;
+  level?: string;
 }
-
-function buildNodesAndEdges(
-  agents: Agent[],
-  onSelect: (id: string) => void,
-  onChatClick: (id: string) => void,
-  recentEdges: Set<string>
-): { nodes: Node[]; edges: Edge[] } {
-  const positions: Record<string, { x: number; y: number }> = {};
-  const levelMap: Record<string, number> = {};
-  const childrenMap: Record<string, string[]> = {};
-
-  agents.forEach((a) => {
-    if (a.parentId) {
-      if (!childrenMap[a.parentId]) childrenMap[a.parentId] = [];
-      childrenMap[a.parentId].push(a.id);
-    }
-  });
-
-  const roots = agents.filter((a) => !a.parentId);
-
-  const queue: { id: string; level: number }[] = roots.map((r) => ({
-    id: r.id,
-    level: 0,
-  }));
-  const visited = new Set<string>();
-
-  while (queue.length > 0) {
-    const { id, level } = queue.shift()!;
-    if (visited.has(id)) continue;
-    visited.add(id);
-    levelMap[id] = level;
-    const children = childrenMap[id] || [];
-    children.forEach((cid) => queue.push({ id: cid, level: level + 1 }));
-  }
-
-  agents.forEach((a) => {
-    if (!visited.has(a.id)) {
-      levelMap[a.id] = 0;
-    }
-  });
-
-  const levelsCount: Record<number, string[]> = {};
-  Object.entries(levelMap).forEach(([id, level]) => {
-    if (!levelsCount[level]) levelsCount[level] = [];
-    levelsCount[level].push(id);
-  });
-
-  const VERTICAL_GAP = 200;
-  const HORIZONTAL_GAP = 280;
-
-  // Separate support agents (like Iris) to position them on the left
-  const supportAgentIds = new Set(['iris']);
-  
-  Object.entries(levelsCount).forEach(([levelStr, ids]) => {
-    const level = parseInt(levelStr);
-    // Filter out support agents from main layout
-    const mainIds = ids.filter(id => !supportAgentIds.has(id));
-    const supportIds = ids.filter(id => supportAgentIds.has(id));
-    
-    // Position main agents centered
-    const totalWidth = (mainIds.length - 1) * HORIZONTAL_GAP;
-    const startX = -totalWidth / 2;
-    mainIds.forEach((id, i) => {
-      positions[id] = {
-        x: startX + i * HORIZONTAL_GAP,
-        y: level * VERTICAL_GAP,
-      };
-    });
-    
-    // Position support agents to the far left
-    supportIds.forEach((id, i) => {
-      positions[id] = {
-        x: startX - HORIZONTAL_GAP * 1.5 - (i * HORIZONTAL_GAP),
-        y: level * VERTICAL_GAP,
-      };
-    });
-  });
-
-  const nodes: Node[] = agents.map((agent) => ({
-    id: agent.id,
-    type: "agent",
-    position: positions[agent.id] || { x: 0, y: 0 },
-    data: {
-      label: agent.name,
-      role: agent.role,
-      emoji: agent.emoji,
-      status: agent.status,
-      specialties: agent.specialties,
-      onSelect,
-      onChatClick,
-      unreadCount: 0, // Could be populated with real counts
-    },
-  }));
-
-  // Generate edges dynamically based on parentId relationships
-  const edges: Edge[] = agents
-    .filter(a => a.parentId)
-    .map((a) => {
-      const edgeId = `e-${a.parentId}-${a.id}`;
-      const isRecent = recentEdges.has(edgeId);
-      const isOnline = a.status === 'online';
-      return {
-        id: edgeId,
-        source: a.parentId!,
-        target: a.id,
-        animated: isOnline || isRecent,
-        type: "smoothstep",
-        style: {
-          stroke: isOnline || isRecent ? "#6366f1" : "#27272a",
-          strokeWidth: isRecent ? 3 : isOnline ? 2 : 1.5,
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: isOnline || isRecent ? "#6366f1" : "#3f3f46",
-          width: 16,
-          height: 16,
-        },
-        labelStyle: {
-          fill: "#71717a",
-          fontSize: 10,
-          fontWeight: 500,
-        },
-        labelBgStyle: {
-          fill: "#12121a",
-          fillOpacity: 0.9,
-        },
-        labelBgPadding: [6, 3] as [number, number],
-        labelBgBorderRadius: 4,
-        className: isRecent ? "edge-pulse" : "",
-      };
-    });
-
-  return { nodes, edges };
-}
-
-// Core agents that always exist (founders + their assistants)
-const CORE_AGENTS: Agent[] = [
-  {
-    id: "andrew",
-    name: "Andrew",
-    role: "Co-founder",
-    emoji: "👑",
-    status: "online",
-    purpose: "Vision, strategy, and final decisions. The human behind Spark Studio.",
-    specialties: ["Strategy", "Product Vision", "Leadership", "Revenue"],
-    parentId: null,
-    recentActivity: [],
-    communications: [],
-    metrics: { tasksCompleted: 0, uptime: "100%", lastActive: new Date().toISOString() },
-  },
-  {
-    id: "cale",
-    name: "Cale",
-    role: "Co-founder",
-    emoji: "🚀",
-    status: "online",
-    purpose: "Co-founder focused on Funnels App development with Arthur.",
-    specialties: ["Funnels App", "Product Development", "Technical Strategy"],
-    parentId: null,
-    recentActivity: [],
-    communications: [],
-    metrics: { tasksCompleted: 0, uptime: "100%", lastActive: new Date().toISOString() },
-  },
-  {
-    id: "henry",
-    name: "Henry",
-    role: "COO",
-    emoji: "🎯",
-    status: "online",
-    purpose: "Operations command center. Manages agents, coordinates tasks, runs operations for Andrew.",
-    specialties: ["Operations", "Coordination", "Agent Management", "Strategy Execution"],
-    parentId: "andrew",
-    recentActivity: [],
-    communications: [],
-    metrics: { tasksCompleted: 0, uptime: "99.7%", lastActive: new Date().toISOString() },
-  },
-  {
-    id: "arthur",
-    name: "Arthur",
-    role: "Cale's Assistant",
-    emoji: "🤖",
-    status: "online",
-    purpose: "Cale's executive assistant. Supports Funnels App development, collaborates with Henry.",
-    specialties: ["Funnels App", "Development Support", "Coordination with Henry"],
-    parentId: "cale",
-    recentActivity: [],
-    communications: [],
-    metrics: { tasksCompleted: 0, uptime: "99.5%", lastActive: new Date().toISOString() },
-  },
-];
 
 export default function Dashboard() {
-  const [agents, setAgents] = useState<Agent[]>(CORE_AGENTS);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [showMeetings, setShowMeetings] = useState(false);
-  const [showGoals, setShowGoals] = useState(false);
-  const [showPlans, setShowPlans] = useState(false);
-  const [showStatus, setShowStatus] = useState(false);
-  const [showActivity, setShowActivity] = useState(false);
-  const [showHeartbeats, setShowHeartbeats] = useState(false);
-  const [showCrons, setShowCrons] = useState(false);
-  const [initialChatId, setInitialChatId] = useState<string | null>(null);
-  const [meetingRefreshKey, setMeetingRefreshKey] = useState(0);
-  const [recentEdges, setRecentEdges] = useState<Set<string>>(new Set());
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<UserIdentity | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [activeTab, setActiveTab] = useState<'board' | 'activity' | 'documents'>('board');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Check for existing identity on mount
+  // Load agents from roster
   useEffect(() => {
-    const existing = getUserIdentity();
-    if (existing) setCurrentUserId(existing);
-  }, []);
-
-  // Fetch real agents from Railway on mount
-  useEffect(() => {
-    async function fetchAgents() {
+    async function loadAgents() {
       try {
         const res = await fetch('/api/agents');
         if (res.ok) {
           const data = await res.json();
-          if (data.agents && Array.isArray(data.agents)) {
-            // Agent hierarchy mapping
-            const agentHierarchy: Record<string, { parentId: string; emoji: string }> = {
-              // Heads report to Henry
-              atlas: { parentId: 'henry', emoji: '🗺️' },
-              apollo: { parentId: 'henry', emoji: '☀️' },
-              artemis: { parentId: 'henry', emoji: '🏹' },
-              // Engineers report to their respective heads
-              maia: { parentId: 'atlas', emoji: '⭐' },
-              orpheus: { parentId: 'apollo', emoji: '🎵' },
-              callisto: { parentId: 'artemis', emoji: '🐻' },
-              // Support reports to Henry but positioned separately
-              iris: { parentId: 'henry', emoji: '🌈' },
-            };
-
-            // Convert Railway records to Agent format
-            const railwayAgents: Agent[] = data.agents.map((record: {
-              agentId: string;
-              agentName: string;
-              agentRole?: string;
-              agentPurpose?: string;
-              roleTemplate?: string;
-              domain?: string;
-              gatewayUrl?: string;
-              gatewayToken?: string;
-              liveStatus?: string;
-              provisionedAt?: string;
-              railwayProjectId?: string;
-              railwayServiceId?: string;
-            }) => {
-              const hierarchy = agentHierarchy[record.agentId] || { parentId: 'henry', emoji: '🤖' };
-              return {
-                id: record.agentId,
-                name: record.agentName,
-                role: record.agentRole || record.roleTemplate || 'Agent',
-                emoji: hierarchy.emoji,
-                status: record.liveStatus === 'SUCCESS' ? 'online' : 'offline',
-                purpose: record.agentPurpose || `Provisioned agent`,
-                specialties: [],
-                parentId: hierarchy.parentId,
-                recentActivity: [],
-                communications: [],
-                metrics: {
-                  tasksCompleted: 0,
-                  uptime: record.liveStatus === 'SUCCESS' ? '100%' : '0%',
-                  lastActive: record.provisionedAt || new Date().toISOString(),
-                },
-                infrastructure: {
-                  railwayProjectId: record.railwayProjectId,
-                  railwayServiceId: record.railwayServiceId,
-                  railwayUrl: record.railwayProjectId ? `https://railway.app/project/${record.railwayProjectId}` : undefined,
-                  railwayStatus: record.liveStatus,
-                  gatewayUrl: record.gatewayUrl || (record.domain ? `https://${record.domain}` : undefined),
-                  gatewayToken: record.gatewayToken,
-                  provisionedAt: record.provisionedAt,
-                },
-              };
-            });
-            // Filter out hidden services (like moltbot-railway-template)
-            const hiddenServices = ['moltbot-railway-template', 'moltbot_railway_template'];
-            const visibleAgents = railwayAgents.filter(a => !hiddenServices.includes(a.id.toLowerCase()));
-            
-            // Merge core agents with Railway agents (avoid duplicates)
-            const railwayIds = new Set(visibleAgents.map(a => a.id));
-            const merged = [
-              ...CORE_AGENTS.filter(a => !railwayIds.has(a.id)),
-              ...visibleAgents,
-            ];
-            setAgents(merged);
-          }
+          setAgents(data.agents || []);
         }
-      } catch (err) {
-        console.error('Failed to fetch agents:', err);
+      } catch (error) {
+        console.error('Failed to load agents:', error);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     }
-    fetchAgents();
-  }, []);
-
-  const handleSelectAgent = useCallback((id: string) => {
-    setSelectedAgentId((prev) => (prev === id ? null : id));
-  }, []);
-
-  // Open DM from agent node chat icon
-  const handleChatClick = useCallback(
-    (agentId: string) => {
-      const dmId = getDmChatId(currentUserId || 'andrew', agentId);
-      setInitialChatId(dmId);
-      setShowChat(true);
-    },
-    []
-  );
-
-  const initialLayout = useMemo(
-    () => buildNodesAndEdges(agents, handleSelectAgent, handleChatClick, recentEdges),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agents, recentEdges]
-  );
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialLayout.nodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialLayout.edges);
-
-  useEffect(() => {
-    const layout = buildNodesAndEdges(agents, handleSelectAgent, handleChatClick, recentEdges);
-    setNodes(layout.nodes);
-    setEdges(layout.edges);
-  }, [agents, handleSelectAgent, handleChatClick, recentEdges, setNodes, setEdges]);
-
-  const handleAddAgent = useCallback((newAgent: Agent) => {
-    setAgents((prev) => [...prev, newAgent]);
-    setShowAddModal(false);
-  }, []);
-
-  const handleAgentUpdate = useCallback((updatedAgent: Agent) => {
-    setAgents((prev) =>
-      prev.map((a) => (a.id === updatedAgent.id ? updatedAgent : a))
-    );
-  }, []);
-
-  // Handle edge click → open DM between source and target
-  const handleEdgeClick: EdgeMouseHandler = useCallback(
-    (_event, edge) => {
-      const dmId = getDmChatId(edge.source, edge.target);
-      setInitialChatId(dmId);
-      setShowChat(true);
-
-      // Pulse the edge
-      setRecentEdges((prev) => {
-        const next = new Set(prev);
-        next.add(edge.id);
-        return next;
-      });
-      setTimeout(() => {
-        setRecentEdges((prev) => {
-          const next = new Set(prev);
-          next.delete(edge.id);
-          return next;
-        });
-      }, 3000);
-    },
-    []
-  );
-
-  const handleOpenChat = useCallback(() => {
-    setInitialChatId(null);
-    setShowChat(true);
-  }, []);
-
-  const handleCloseChat = useCallback(() => {
-    setShowChat(false);
-    setInitialChatId(null);
-  }, []);
-
-  const handleMeetingScheduled = useCallback(() => {
-    setMeetingRefreshKey((k) => k + 1);
-  }, []);
-
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId) || null;
-
-  const minimapNodeColor = useCallback((node: Node) => {
-    const data = node.data as { status?: string };
-    if (data.status === "online") return "#22c55e";
-    if (data.status === "busy") return "#f59e0b";
-    return "#3f3f46";
+    loadAgents();
   }, []);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#0a0a0f] overflow-hidden">
-      {/* Identity selector modal */}
-      {!currentUserId && (
-        <WhoAreYouModal onSelect={(id) => setCurrentUserId(id)} />
-      )}
-      
-      <TopBar
-        agents={agents}
-        onAddAgent={() => setShowAddModal(true)}
-        onOpenChat={handleOpenChat}
-        onOpenMeetings={() => setShowMeetings(true)}
-        onOpenGoals={() => setShowGoals(true)}
-        onOpenPlans={() => setShowPlans(true)}
-        onOpenStatus={() => setShowStatus(true)}
-        onOpenActivity={() => setShowActivity(true)}
-        onOpenHeartbeats={() => setShowHeartbeats(true)}
-        onOpenCrons={() => setShowCrons(true)}
-        unreadCount={unreadCount}
-      />
+    <div className="h-screen flex bg-zinc-950">
+      {/* Sidebar */}
+      <aside className="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+        {/* Logo */}
+        <div className="p-4 border-b border-zinc-800">
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <Lightning className="w-6 h-6 text-indigo-400" weight="fill" />
+            Mission Control
+          </h1>
+        </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
-          agents={agents}
-          selectedAgentId={selectedAgentId}
-          onSelectAgent={handleSelectAgent}
-        />
-
-        {/* Main canvas */}
-        <div className="flex-1 relative">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onEdgeClick={handleEdgeClick}
-            nodeTypes={nodeTypes}
-            connectionMode={ConnectionMode.Loose}
-            fitView
-            fitViewOptions={{ padding: 0.4, minZoom: 0.5, maxZoom: 1.2 }}
-            minZoom={0.2}
-            maxZoom={2}
-            proOptions={{ hideAttribution: true }}
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-1">
+          <button
+            onClick={() => setActiveTab('board')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              activeTab === 'board' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-zinc-400 hover:bg-zinc-800'
+            }`}
           >
-            <Background
-              variant={BackgroundVariant.Dots}
-              gap={24}
-              size={1}
-              color="rgba(99, 102, 241, 0.08)"
-            />
-            <Controls
-              showInteractive={false}
-              position="bottom-left"
-              style={{ marginBottom: 10, marginLeft: 10 }}
-            />
-            <MiniMap
-              nodeColor={minimapNodeColor}
-              maskColor="rgba(0, 0, 0, 0.7)"
-              position="bottom-right"
-              style={{
-                marginBottom: 10,
-                marginRight: 10,
-                width: 150,
-                height: 100,
-              }}
-            />
-          </ReactFlow>
+            <LayoutGrid className="w-4 h-4" />
+            Task Board
+          </button>
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              activeTab === 'activity' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-zinc-400 hover:bg-zinc-800'
+            }`}
+          >
+            <Lightning className="w-4 h-4" />
+            Activity Feed
+          </button>
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+              activeTab === 'documents' 
+                ? 'bg-indigo-600 text-white' 
+                : 'text-zinc-400 hover:bg-zinc-800'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Documents
+          </button>
+        </nav>
 
-          {/* Canvas ambient effects */}
-          <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 right-0 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Upcoming Meetings Widget */}
-          <UpcomingMeetings agents={agents} refreshKey={meetingRefreshKey} />
+        {/* Agents List */}
+        <div className="p-4 border-t border-zinc-800">
+          <h3 className="text-xs font-medium text-zinc-500 uppercase mb-3 flex items-center gap-2">
+            <Users className="w-3 h-3" />
+            Agents
+          </h3>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {loading ? (
+              <p className="text-xs text-zinc-600">Loading...</p>
+            ) : agents.map(agent => (
+              <div 
+                key={agent.id}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-800 cursor-pointer"
+              >
+                <AgentIcon agentId={agent.id} size={24} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-zinc-300 truncate">{agent.name}</p>
+                  <p className="text-xs text-zinc-500 truncate">{agent.role}</p>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${
+                  agent.status === 'online' ? 'bg-green-400' : 'bg-zinc-600'
+                }`} />
+              </div>
+            ))}
+          </div>
         </div>
+      </aside>
 
-        {/* Detail Panel */}
-        {selectedAgent && (
-          <DetailPanel
-            agent={selectedAgent}
-            allAgents={agents}
-            onClose={() => setSelectedAgentId(null)}
-            onAgentUpdate={handleAgentUpdate}
-          />
-        )}
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0">
+        {/* Top Bar */}
+        <header className="h-14 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search tasks, agents, documents..."
+                className="bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-4 py-1.5 text-sm text-white placeholder-zinc-500 w-80"
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <button className="p-2 hover:bg-zinc-800 rounded-lg">
+              <Settings className="w-5 h-5 text-zinc-400" />
+            </button>
+          </div>
+        </header>
 
-      {/* Add Agent Modal */}
-      {showAddModal && (
-        <AddAgentModal
-          agents={agents}
-          onAdd={handleAddAgent}
-          onClose={() => setShowAddModal(false)}
+        {/* Content Area */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'board' && (
+            <TaskBoardKanban 
+              onTaskClick={(task) => setSelectedTaskId(task.id)}
+              onCreateTask={() => {/* TODO: Show create modal */}}
+            />
+          )}
+          {activeTab === 'activity' && (
+            <div className="h-full p-4">
+              <div className="h-full bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+                <div className="p-4 border-b border-zinc-800">
+                  <h2 className="font-semibold text-white flex items-center gap-2">
+                    <Lightning className="w-5 h-5 text-yellow-400" />
+                    Activity Feed
+                  </h2>
+                </div>
+                <ActivityFeed pollInterval={5000} />
+              </div>
+            </div>
+          )}
+          {activeTab === 'documents' && (
+            <div className="h-full p-4">
+              <DocumentPanel />
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Task Detail Modal */}
+      {selectedTaskId && (
+        <TaskDetailView
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onStatusChange={() => {/* Refresh board */}}
         />
-      )}
-
-      {/* Chat Panel */}
-      <ChatPanel
-        agents={agents}
-        isOpen={showChat}
-        onClose={handleCloseChat}
-        initialChatId={initialChatId}
-        currentUserId={currentUserId || 'andrew'}
-      />
-
-      {/* Meeting Scheduler */}
-      <MeetingScheduler
-        agents={agents}
-        isOpen={showMeetings}
-        onClose={() => setShowMeetings(false)}
-        onMeetingScheduled={handleMeetingScheduled}
-      />
-
-      {/* Goals Panel */}
-      {showGoals && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Target size={20} weight="fill" className="text-indigo-400" />
-                Agent Goals
-              </h2>
-              <button
-                onClick={() => setShowGoals(false)}
-                className="text-zinc-500 hover:text-white p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-[calc(80vh-60px)]">
-              <GoalsPanel />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Plans Panel */}
-      {showPlans && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <FileText size={20} weight="fill" className="text-indigo-400" />
-                Agent Plans
-              </h2>
-              <button
-                onClick={() => setShowPlans(false)}
-                className="text-zinc-500 hover:text-white p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-[calc(85vh-60px)] overflow-visible">
-              <PlansPanel />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status Reports Panel */}
-      {showStatus && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <ChartLine size={20} weight="fill" className="text-indigo-400" />
-                Status Reports
-              </h2>
-              <button
-                onClick={() => setShowStatus(false)}
-                className="text-zinc-500 hover:text-white p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-[calc(90vh-60px)] overflow-y-auto">
-              <StatusReportsPanel />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Activity Logs Panel */}
-      {showActivity && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <WaveSquare size={20} className="text-green-400" />
-                Agent Activity Logs
-              </h2>
-              <button
-                onClick={() => setShowActivity(false)}
-                className="text-zinc-500 hover:text-white p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-[calc(90vh-60px)]">
-              <ActivityPanel />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Heartbeats Panel */}
-      {showHeartbeats && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Heartbeat size={20} weight="fill" className="text-red-400" />
-                Heartbeat Manager
-              </h2>
-              <button
-                onClick={() => setShowHeartbeats(false)}
-                className="text-zinc-500 hover:text-white p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-[calc(90vh-60px)]">
-              <HeartbeatsPanel />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Crons Panel */}
-      {showCrons && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0e0e15] border border-zinc-800 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Timer size={20} weight="fill" className="text-purple-400" />
-                Cron Job Manager
-              </h2>
-              <button
-                onClick={() => setShowCrons(false)}
-                className="text-zinc-500 hover:text-white p-1"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-[calc(90vh-60px)]">
-              <CronsPanel />
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
