@@ -15,7 +15,7 @@ export const getById = query({
   handler: async (ctx, args) => {
     const agents = await ctx.db
       .query("agents")
-      .withIndex("by_id", (q) => q.eq("id", args.id))
+      .withIndex("by_agent_id", (q) => q.eq("id", args.id))
       .collect();
     return agents[0] || null;
   },
@@ -62,7 +62,7 @@ export const createOrUpdate = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("agents")
-      .withIndex("by_id", (q) => q.eq("id", args.id))
+      .withIndex("by_agent_id", (q) => q.eq("id", args.id))
       .first();
     
     if (existing) {
@@ -111,7 +111,7 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const agent = await ctx.db
       .query("agents")
-      .withIndex("by_id", (q) => q.eq("id", args.id))
+      .withIndex("by_agent_id", (q) => q.eq("id", args.id))
       .first();
     
     if (agent) {
@@ -127,7 +127,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const agent = await ctx.db
       .query("agents")
-      .withIndex("by_id", (q) => q.eq("id", args.id))
+      .withIndex("by_agent_id", (q) => q.eq("id", args.id))
       .first();
     
     if (agent) {
@@ -156,7 +156,7 @@ export const syncFromRoster = mutation({
     for (const agent of args.agents) {
       const existing = await ctx.db
         .query("agents")
-        .withIndex("by_id", (q) => q.eq("id", agent.id))
+        .withIndex("by_agent_id", (q) => q.eq("id", agent.id))
         .first();
       
       if (existing) {
