@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     // Trigger existing job
     if (action === 'trigger' && jobId) {
       const jobs = await sql`SELECT * FROM cron_jobs WHERE job_id = ${jobId}`;
-      const job = jobs[0];
+      const job = (jobs as any[])[0];
       
       if (!job) {
         return NextResponse.json({ success: false, error: 'Job not found' }, { status: 404 });
