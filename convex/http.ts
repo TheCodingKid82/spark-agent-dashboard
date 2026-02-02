@@ -431,7 +431,7 @@ http.route({
       return jsonResponse({ success: true, notification });
     } else if (body.recipient_id) {
       const result = await ctx.runMutation(api.notifications.markAllAsRead, { recipientId: body.recipient_id });
-      return jsonResponse({ success: true, markedAll: true, ...result });
+      return jsonResponse({ success: true, markedAll: true, result });
     }
     
     return jsonResponse({ success: false, error: "Missing id or recipient_id" }, 400);
