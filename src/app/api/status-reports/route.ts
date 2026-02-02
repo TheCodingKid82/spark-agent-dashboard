@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      reports: reports.map(r => ({
+      reports: (reports as any[]).map((r: any) => ({
         id: r.id,
         agentId: r.agent_id,
         agentName: r.agent_name,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       SELECT id FROM status_reports WHERE agent_id = ${agentId}
     `;
     
-    if (existing.length > 0) {
+    if ((existing as any[]).length > 0) {
       await sql`
         UPDATE status_reports SET
           agent_name = ${agentName || agentId},
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Status report updated',
-        reportId: existing[0].id,
+        reportId: (existing as any[])[0].id,
       });
     } else {
       const id = `report_${agentId}_${Date.now()}`;
@@ -197,7 +197,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
-    const report = current[0];
+    const report = (current as any[])[0];
     
     // Merge updates
     const newSummary = updates.summary ?? report.summary;

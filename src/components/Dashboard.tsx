@@ -159,8 +159,7 @@ export default function Dashboard() {
         <div className="flex-1 overflow-hidden">
           {activeTab === 'board' && (
             <TaskBoardKanban 
-              onTaskClick={(task) => setSelectedTaskId(task.id)}
-              onCreateTask={() => {/* TODO: Show create modal */}}
+              onTaskSelect={(taskId) => setSelectedTaskId(taskId)}
             />
           )}
           {activeTab === 'activity' && (
@@ -172,7 +171,7 @@ export default function Dashboard() {
                     Activity Feed
                   </h2>
                 </div>
-                <ActivityFeed pollInterval={5000} />
+                <ActivityFeed />
               </div>
             </div>
           )}
