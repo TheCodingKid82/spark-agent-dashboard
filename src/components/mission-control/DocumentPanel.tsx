@@ -187,7 +187,43 @@ export function DocumentPanel({ taskId, onDocumentSelect }: DocumentPanelProps) 
             className="w-full bg-zinc-950/40 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           />
         </div>
-        <button className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-lg text-sm">
+        <button
+          className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-lg text-sm"
+          onClick={async () => {
+            try {
+              const now = Date.now();
+              const tempId = `doc-${now}`;
+              const tempDoc: Document = {
+                id: tempId,
+                title: "New document",
+                content: "",
+                contentType: "markdown",
+                authorId: "current-user",
+                status: "draft",
+                version: 1,
+                createdAt: now,
+                updatedAt: now,
+              };
+              setDocuments((prev) => [tempDoc, ...prev]);
+              setSelectedDoc(tempDoc);
+              const res = await fetch("/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(tempDoc),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const newId = data.documentId || data.id;
+                if (newId && newId !== tempId) {
+                  setDocuments((prev) => prev.map((d) => (d.id === tempId ? { ...d, id: newId } : d)));
+                  setSelectedDoc((d) => (d?.id === tempId ? { ...d, id: newId } : d));
+                }
+              }
+            } catch (e) {
+              console.error("Failed to create doc", e);
+            }
+          }}
+        >
           <Plus className="w-4 h-4" />
           New
         </button>

@@ -81,7 +81,7 @@ function AgentNode({ data, id }: NodeProps & { data: AgentNodeData }) {
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700">
-              <AgentIcon agentId={id} size={22} weight="fill" className="text-indigo-400" />
+              <AgentIcon agentId={id} size={22} className="text-indigo-300" />
             </div>
             {/* Status indicator */}
             <div

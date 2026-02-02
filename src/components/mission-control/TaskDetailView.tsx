@@ -1,16 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
+import {
   X,
-  ChatCircle,
-  PaperPlane,
+  MessageCircle,
+  Send,
   Clock,
   Flag,
   User,
   Tag,
-  CheckCircle
-} from '@phosphor-icons/react';
+  CheckCircle2,
+} from 'lucide-react';
 import { AgentIcon } from '@/lib/icons';
 
 interface Task {
@@ -45,10 +45,10 @@ interface TaskDetailViewProps {
 
 const STATUS_OPTIONS: Task['status'][] = ['inbox', 'assigned', 'in_progress', 'review', 'done'];
 const PRIORITY_COLORS = {
-  low: 'text-zinc-500',
-  medium: 'text-blue-400',
-  high: 'text-orange-400',
-  urgent: 'text-red-400',
+  low: 'text-zinc-400',
+  medium: 'text-indigo-300',
+  high: 'text-amber-300',
+  urgent: 'text-red-300',
 };
 
 export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailViewProps) {
@@ -99,18 +99,21 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
 
     setIsSubmitting(true);
     try {
-      await fetch('/api/messages', {
+      const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task_id: taskId,
           content: newComment,
           author_id: 'current-user',
-          author_type: 'human'
+          author_type: 'human',
         }),
       });
-      setNewComment('');
-      fetchTask();
+      // In stub mode, treat any response as success so the UI doesn't feel dead.
+      if (res.ok) {
+        setNewComment('');
+        fetchTask();
+      }
     } catch (error) {
       console.error('Failed to submit comment:', error);
     } finally {
@@ -159,7 +162,7 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
                   <option key={s} value={s}>{s.replace('_', ' ')}</option>
                 ))}
               </select>
-              <Flag className={`w-4 h-4 ${PRIORITY_COLORS[task.priority]}`} weight="fill" />
+              <Flag className={`w-4 h-4 ${PRIORITY_COLORS[task.priority]}`} />
             </div>
             <h2 className="text-xl font-semibold text-white">{task.title}</h2>
           </div>
@@ -193,7 +196,7 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
               
               {task.assigned_to && (
                 <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="w-4 h-4 text-zinc-500" />
+                  <CheckCircle2 className="w-4 h-4 text-zinc-500" />
                   <span className="text-zinc-400">Assigned to:</span>
                   <AgentIcon agentId={task.assigned_to} size={20} />
                   <span className="text-zinc-200 capitalize">{task.assigned_to}</span>
@@ -234,7 +237,7 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
           <div className="flex-1 flex flex-col">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <h4 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
-                <ChatCircle className="w-4 h-4" />
+                <MessageCircle className="w-4 h-4" />
                 Discussion ({messages.length})
               </h4>
 
@@ -277,7 +280,7 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
                   disabled={isSubmitting || !newComment.trim()}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg flex items-center gap-2"
                 >
-                  <PaperPlane className="w-4 h-4" />
+                  <Send className="w-4 h-4" />
                 </button>
               </div>
             </form>

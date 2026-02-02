@@ -69,7 +69,7 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
   };
 
   const renderAgentIcon = (id: string, size: number = 14) => {
-    return <AgentIcon agentId={id} size={size} weight="fill" className="text-indigo-400" />;
+    return <AgentIcon agentId={id} size={size} className="text-indigo-300" />;
   };
 
   const handleServiceAction = useCallback(
@@ -126,7 +126,7 @@ export default function DetailPanel({ agent, allAgents, onClose, onAgentUpdate }
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center border border-zinc-700">
-                <AgentIcon agentId={agent.id} size={26} weight="fill" className="text-indigo-400" />
+                <AgentIcon agentId={agent.id} size={26} className="text-indigo-300" />
               </div>
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-[#0e0e15]

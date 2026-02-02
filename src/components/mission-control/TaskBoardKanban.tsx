@@ -43,6 +43,49 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
   const [loading, setLoading] = useState(true);
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
 
+  async function createTaskInColumn(status: TaskStatus) {
+    try {
+      const tempId = `tmp-${Date.now()}`;
+      const tempTask: Task = {
+        id: tempId,
+        title: "New task",
+        description: "",
+        status,
+        priority: "medium",
+        createdBy: "current-user",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as any;
+
+      // Optimistic add
+      setTasks((prev) => [tempTask, ...prev]);
+      onTaskSelect?.(tempId);
+
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: tempTask.title,
+          description: tempTask.description,
+          status,
+          priority: tempTask.priority,
+          createdBy: tempTask.createdBy,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newId = data.taskId || data.id;
+        if (newId && newId !== tempId) {
+          setTasks((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: newId } : t)));
+          onTaskSelect?.(newId);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    }
+  }
+
   useEffect(() => {
     loadTasks();
   }, []);
@@ -127,7 +170,11 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
                     {columnTasks.length}
                   </span>
                 </h3>
-                <button className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors">
+                <button
+                  className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
+                  onClick={() => createTaskInColumn(column.id)}
+                  title={`New ${column.label} task`}
+                >
                   <Plus className="w-4 h-4 text-zinc-400" />
                 </button>
               </div>

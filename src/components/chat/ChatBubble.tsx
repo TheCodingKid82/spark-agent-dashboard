@@ -33,7 +33,7 @@ export default function ChatBubble({ message, agents, isOwn }: ChatBubbleProps) 
       {/* Avatar */}
       {!isOwn && (
         <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center border border-zinc-700/50 mt-0.5">
-          <AgentIcon agentId={message.sender} size={18} weight="fill" className="text-indigo-400" />
+          <AgentIcon agentId={message.sender} size={18} className="text-indigo-300" />
         </div>
       )}
 

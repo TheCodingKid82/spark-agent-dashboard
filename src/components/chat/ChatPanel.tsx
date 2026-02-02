@@ -292,7 +292,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
   }, [agents, currentUserId]);
 
   const renderAgentIcon = useCallback((id: string, size: number = 14) => {
-    return <AgentIcon agentId={id} size={size} weight="fill" className="text-indigo-400" />;
+    return <AgentIcon agentId={id} size={size} className="text-indigo-300" />;
   }, []);
 
   function formatTime(ts: number): string {
@@ -465,7 +465,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                     }`}
                     title={agent.purpose}
                   >
-                    <AgentIcon agentId={agent.id} size={14} weight="fill" className="text-indigo-400" />
+                    <AgentIcon agentId={agent.id} size={14} className="text-indigo-300" />
                     <span>{agent.name}</span>
                     {agent.status === 'online' && (
                       <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
@@ -671,7 +671,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
                         : 'bg-gray-800/50 border border-gray-700 hover:bg-gray-800'
                     }`}
                   >
-                    <AgentIcon agentId={agent.id} size={18} weight="fill" className="text-indigo-400" />
+                    <AgentIcon agentId={agent.id} size={18} className="text-indigo-300" />
                     <div className="flex-1 text-left">
                       <div className="text-sm font-medium text-white">{agent.name}</div>
                       <div className="text-xs text-gray-500">{agent.role}</div>
