@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from "react";
 import {
   X,
   MessageCircle,
@@ -10,206 +10,289 @@ import {
   User,
   Tag,
   CheckCircle2,
-} from 'lucide-react';
-import { AgentIcon } from '@/lib/icons';
+  Loader2,
+  Trash2,
+} from "lucide-react";
+import { AgentIcon } from "@/lib/icons";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: 'inbox' | 'assigned' | 'in_progress' | 'review' | 'done';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  created_by: string;
-  assigned_to?: string;
-  due_date?: string;
-  tags?: string[];
-  created_at: string;
-  updated_at: string;
-}
+const STATUS_OPTIONS = ["inbox", "assigned", "in_progress", "review", "done"] as const;
+type TaskStatus = (typeof STATUS_OPTIONS)[number];
+type TaskPriority = "low" | "medium" | "high" | "urgent";
 
-interface Message {
-  id: string;
-  task_id: string;
-  author_id: string;
-  author_type: string;
-  content: string;
-  mentions?: string[];
-  created_at: string;
-}
+const PRIORITY_COLORS: Record<TaskPriority, string> = {
+  low: "text-zinc-400",
+  medium: "text-indigo-300",
+  high: "text-amber-300",
+  urgent: "text-red-300",
+};
+
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  inbox: "bg-zinc-700",
+  assigned: "bg-blue-600",
+  in_progress: "bg-amber-600",
+  review: "bg-purple-600",
+  done: "bg-emerald-600",
+};
 
 interface TaskDetailViewProps {
   taskId: string;
   onClose: () => void;
-  onStatusChange?: (status: Task['status']) => void;
+  onStatusChange?: (status: TaskStatus) => void;
 }
 
-const STATUS_OPTIONS: Task['status'][] = ['inbox', 'assigned', 'in_progress', 'review', 'done'];
-const PRIORITY_COLORS = {
-  low: 'text-zinc-400',
-  medium: 'text-indigo-300',
-  high: 'text-amber-300',
-  urgent: 'text-red-300',
-};
-
 export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailViewProps) {
-  const [task, setTask] = useState<Task | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newComment, setNewComment] = useState('');
+  const taskData = useQuery(api.tasks.getTaskWithMessages, { 
+    id: taskId as Id<"tasks"> 
+  });
+  const updateTask = useMutation(api.tasks.update);
+  const deleteTask = useMutation(api.tasks.remove);
+  const createMessage = useMutation(api.messages.create);
+  
+  const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
-  const fetchTask = async () => {
+  const task = taskData?.task;
+  const messages = taskData?.messages || [];
+
+  async function handleStatusChange(newStatus: TaskStatus) {
+    if (!task) return;
     try {
-      const res = await fetch(`/api/tasks/${taskId}`);
-      const data = await res.json();
-      if (data.success) {
-        setTask(data.task);
-        setMessages(data.messages || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch task:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTask();
-    const interval = setInterval(fetchTask, 5000);
-    return () => clearInterval(interval);
-  }, [taskId]);
-
-  const handleStatusChange = async (newStatus: Task['status']) => {
-    try {
-      await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, updated_by: 'current-user' }),
+      await updateTask({
+        id: task._id,
+        updatedBy: "henry",
+        status: newStatus,
       });
-      fetchTask();
       onStatusChange?.(newStatus);
     } catch (error) {
-      console.error('Failed to update status:', error);
+      console.error("Failed to update status:", error);
     }
-  };
+  }
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
+  async function handleSubmitComment(e: React.FormEvent) {
     e.preventDefault();
-    if (!newComment.trim() || isSubmitting) return;
+    if (!newComment.trim() || isSubmitting || !task) return;
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          task_id: taskId,
-          content: newComment,
-          author_id: 'current-user',
-          author_type: 'human',
-        }),
+      await createMessage({
+        taskId: task._id,
+        content: newComment,
+        authorId: "henry",
+        authorType: "agent",
+        messageType: "comment",
       });
-      // In stub mode, treat any response as success so the UI doesn't feel dead.
-      if (res.ok) {
-        setNewComment('');
-        fetchTask();
-      }
+      setNewComment("");
     } catch (error) {
-      console.error('Failed to submit comment:', error);
+      console.error("Failed to submit comment:", error);
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
+  async function handleSaveEdit() {
+    if (!task) return;
+    try {
+      await updateTask({
+        id: task._id,
+        updatedBy: "henry",
+        title: editTitle,
+        description: editDescription,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
+  }
 
-  if (loading) {
+  async function handleDelete() {
+    if (!task || !confirm("Delete this task?")) return;
+    try {
+      await deleteTask({ id: task._id });
+      onClose();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    }
+  }
+
+  function formatDate(timestamp: number) {
+    return new Date(timestamp).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function startEditing() {
+    if (!task) return;
+    setEditTitle(task.title);
+    setEditDescription(task.description || "");
+    setIsEditing(true);
+  }
+
+  // Loading state
+  if (taskData === undefined) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-zinc-900 rounded-xl p-8">
-          <p className="text-zinc-400">Loading...</p>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-zinc-900 rounded-xl p-8 border border-zinc-800">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
         </div>
       </div>
     );
   }
 
+  // Not found
   if (!task) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-zinc-900 rounded-xl p-8">
-          <p className="text-zinc-400">Task not found</p>
-          <button onClick={onClose} className="mt-4 text-blue-400">Close</button>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-zinc-900 rounded-xl p-8 border border-zinc-800 text-center">
+          <p className="text-zinc-400 mb-4">Task not found</p>
+          <button
+            onClick={onClose}
+            className="text-indigo-400 hover:text-indigo-300"
+          >
+            Close
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-900 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-zinc-900 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-zinc-800 shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-zinc-800">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-3">
               <select
                 value={task.status}
-                onChange={(e) => handleStatusChange(e.target.value as Task['status'])}
-                className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-200"
+                onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
+                className={`${STATUS_COLORS[task.status]} border-0 rounded px-3 py-1 text-sm text-white font-medium cursor-pointer`}
               >
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s} className="bg-zinc-800">
+                    {s.replace("_", " ")}
+                  </option>
                 ))}
               </select>
               <Flag className={`w-4 h-4 ${PRIORITY_COLORS[task.priority]}`} />
+              <span className={`text-sm ${PRIORITY_COLORS[task.priority]}`}>
+                {task.priority}
+              </span>
             </div>
-            <h2 className="text-xl font-semibold text-white">{task.title}</h2>
+            
+            {isEditing ? (
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full text-xl font-semibold text-white bg-transparent border-b border-zinc-700 pb-2 focus:outline-none focus:border-indigo-500"
+                placeholder="Task title..."
+              />
+            ) : (
+              <h2
+                onClick={startEditing}
+                className="text-xl font-semibold text-white cursor-pointer hover:text-zinc-300"
+              >
+                {task.title}
+              </h2>
+            )}
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-zinc-800 rounded-lg"
-          >
-            <X className="w-5 h-5 text-zinc-400" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg"
+                >
+                  Save
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleDelete}
+                className="p-2 hover:bg-red-900/30 rounded-lg transition-colors"
+                title="Delete task"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-zinc-400" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-hidden flex">
           {/* Left: Task Details */}
           <div className="w-1/3 border-r border-zinc-800 p-6 space-y-6 overflow-y-auto">
             {/* Description */}
-            {task.description && (
-              <div>
-                <h4 className="text-sm font-medium text-zinc-400 mb-2">Description</h4>
-                <p className="text-sm text-zinc-300">{task.description}</p>
-              </div>
-            )}
+            <div>
+              <h4 className="text-sm font-medium text-zinc-400 mb-2">Description</h4>
+              {isEditing ? (
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full h-32 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-100 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  placeholder="Add a description..."
+                />
+              ) : (
+                <p
+                  onClick={startEditing}
+                  className="text-sm text-zinc-300 cursor-pointer hover:text-zinc-200"
+                >
+                  {task.description || "Click to add description..."}
+                </p>
+              )}
+            </div>
 
             {/* Meta */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm">
                 <User className="w-4 h-4 text-zinc-500" />
                 <span className="text-zinc-400">Created by:</span>
-                <AgentIcon agentId={task.created_by} size={20} />
-                <span className="text-zinc-200 capitalize">{task.created_by}</span>
+                <AgentIcon agentId={task.createdBy} size={20} />
+                <span className="text-zinc-200 capitalize">{task.createdBy}</span>
               </div>
-              
-              {task.assigned_to && (
+
+              {task.assignedTo && (
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-zinc-500" />
                   <span className="text-zinc-400">Assigned to:</span>
-                  <AgentIcon agentId={task.assigned_to} size={20} />
-                  <span className="text-zinc-200 capitalize">{task.assigned_to}</span>
+                  <AgentIcon agentId={task.assignedTo} size={20} />
+                  <span className="text-zinc-200 capitalize">{task.assignedTo}</span>
                 </div>
               )}
 
-              {task.due_date && (
+              {task.dueDate && (
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-zinc-500" />
                   <span className="text-zinc-400">Due:</span>
-                  <span className="text-zinc-200">{formatDate(task.due_date)}</span>
+                  <span className="text-zinc-200">{formatDate(task.dueDate)}</span>
                 </div>
               )}
+
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-zinc-500" />
+                <span className="text-zinc-400">Created:</span>
+                <span className="text-zinc-200">{formatDate(task._creationTime)}</span>
+              </div>
             </div>
 
             {/* Tags */}
@@ -220,10 +303,10 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
                   Tags
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {task.tags.map(tag => (
-                    <span 
+                  {task.tags.map((tag) => (
+                    <span
                       key={tag}
-                      className="text-xs px-2 py-1 bg-zinc-800 text-zinc-300 rounded"
+                      className="text-xs px-2 py-1 bg-zinc-800 text-zinc-300 rounded border border-zinc-700"
                     >
                       {tag}
                     </span>
@@ -242,23 +325,30 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
               </h4>
 
               {messages.length === 0 ? (
-                <p className="text-zinc-500 text-sm">No comments yet. Start the discussion!</p>
+                <div className="text-center py-8">
+                  <MessageCircle className="w-8 h-8 mx-auto mb-2 text-zinc-700" />
+                  <p className="text-zinc-500 text-sm">
+                    No comments yet. Start the discussion!
+                  </p>
+                </div>
               ) : (
                 messages.map((msg) => (
-                  <div key={msg.id} className="flex gap-3">
-                    <AgentIcon agentId={msg.author_id} size={32} />
+                  <div key={msg._id} className="flex gap-3">
+                    <AgentIcon agentId={msg.authorId} size={32} />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm text-zinc-200 capitalize">
-                          {msg.author_id}
+                          {msg.authorId}
                         </span>
                         <span className="text-xs text-zinc-500">
-                          {formatDate(msg.created_at)}
+                          {formatDate(msg._creationTime)}
                         </span>
                       </div>
-                      <p className="text-sm text-zinc-300 whitespace-pre-wrap">
-                        {msg.content}
-                      </p>
+                      <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg px-3 py-2">
+                        <p className="text-sm text-zinc-300 whitespace-pre-wrap">
+                          {msg.content}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -273,14 +363,18 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Add a comment... Use @agent to mention"
-                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-sm text-white placeholder-zinc-500"
+                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
                 <button
                   type="submit"
                   disabled={isSubmitting || !newComment.trim()}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white rounded-lg flex items-center gap-2 transition-colors"
                 >
-                  <Send className="w-4 h-4" />
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </form>

@@ -1,5 +1,5 @@
-import Dashboard from "@/components/Dashboard";
+import ClientOnlyDashboard from "@/components/ClientOnlyDashboard";
 
 export default function Home() {
-  return <Dashboard />;
+  return <ClientOnlyDashboard />;
 }

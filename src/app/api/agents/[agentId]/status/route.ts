@@ -1,53 +1,88 @@
 import { NextResponse } from 'next/server';
-import { getRecord, updateRecord } from '@/lib/provisioning/store';
-import { getServiceStatus } from '@/lib/provisioning/railway';
-import { checkAgentHealth } from '@/lib/provisioning/gateway-config';
+import { getAgent } from '@/lib/agents/registry';
 
 /**
- * GET /api/agents/:agentId/status — Get live agent status
+ * GET /api/agents/:agentId/status — Get agent session status
  */
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params;
-  const record = getRecord(agentId);
+  const agent = getAgent(agentId);
 
-  if (!record) {
+  if (!agent) {
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  const result: Record<string, unknown> = {
-    agentId,
-    agentName: record.agentName,
-  };
+  const gatewayUrl = process.env.HENRY_GATEWAY_URL;
+  const gatewayToken = process.env.HENRY_GATEWAY_TOKEN;
 
-  // Railway service status
-  if (record.railwayServiceId) {
-    const serviceResult = await getServiceStatus(record.railwayServiceId);
-    if (serviceResult.success && serviceResult.data) {
-      result.railway = {
-        status: serviceResult.data.status,
-        domain: serviceResult.data.domain,
-      };
-    }
-  }
-
-  // Gateway health check
-  if (record.gatewayUrl && record.gatewayToken) {
-    const health = await checkAgentHealth(record.gatewayUrl, record.gatewayToken);
-    result.gateway = {
-      healthy: health.healthy,
-      status: health.status,
-      error: health.error,
-    };
-
-    // Update last health check
-    updateRecord(agentId, {
-      lastHealthCheck: new Date().toISOString(),
-      healthStatus: health.healthy ? 'healthy' : 'unhealthy',
+  if (!gatewayUrl || !gatewayToken) {
+    return NextResponse.json({
+      success: true,
+      agentId,
+      agentName: agent.name,
+      sessionKey: agent.sessionKey,
+      status: 'unknown',
+      message: 'Gateway not configured',
     });
   }
 
-  return NextResponse.json({ success: true, ...result });
+  try {
+    // Check if there's an active session for this agent
+    const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/tools/invoke`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${gatewayToken}`,
+      },
+      body: JSON.stringify({
+        tool: 'sessions_list',
+        params: {},
+      }),
+    });
+
+    if (!res.ok) {
+      return NextResponse.json({
+        success: true,
+        agentId,
+        agentName: agent.name,
+        sessionKey: agent.sessionKey,
+        status: 'offline',
+        error: 'Gateway unreachable',
+      });
+    }
+
+    const data = await res.json();
+    const sessions = data.sessions || [];
+    
+    // Check if this agent has an active session
+    const agentSession = sessions.find((s: any) => 
+      s.sessionKey === agent.sessionKey || 
+      s.label === agent.id ||
+      s.agentId === agent.id
+    );
+
+    return NextResponse.json({
+      success: true,
+      agentId,
+      agentName: agent.name,
+      emoji: agent.emoji,
+      role: agent.role,
+      sessionKey: agent.sessionKey,
+      status: agentSession ? 'online' : 'offline',
+      session: agentSession || null,
+    });
+
+  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      agentId,
+      agentName: agent.name,
+      sessionKey: agent.sessionKey,
+      status: 'error',
+      error: String(error),
+    });
+  }
 }

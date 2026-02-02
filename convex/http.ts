@@ -222,7 +222,7 @@ http.route({
     } else if (targetType && targetId) {
       activities = await ctx.runQuery(api.activities.getByTarget, { targetType: targetType as any, targetId, limit });
     } else {
-      activities = await ctx.runQuery(api.activities.getAll, { limit, offset });
+      activities = await ctx.runQuery(api.activities.getAll, { limit });
     }
     
     return jsonResponse({ success: true, activities, count: activities.length, hasMore: activities.length === limit });

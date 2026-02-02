@@ -3,18 +3,14 @@ import { query, mutation } from "./_generated/server";
 
 // Queries
 export const getAll = query({
-  args: { limit: v.optional(v.number()), offset: v.optional(v.number()) },
+  args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50;
-    const offset = args.offset ?? 0;
     
-    const activities = await ctx.db
+    return await ctx.db
       .query("activities")
-      .withIndex("by_creation_time", (q) => q)
       .order("desc")
-      .take(limit + offset);
-    
-    return activities.slice(offset);
+      .take(limit);
   },
 });
 

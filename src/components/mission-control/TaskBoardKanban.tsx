@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Calendar, Tag, MoreHorizontal } from "lucide-react";
+import { Plus, Calendar, Tag, GripVertical } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 type TaskStatus = "inbox" | "assigned" | "in_progress" | "review" | "done";
 type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 interface Task {
-  id: string;
+  _id: Id<"tasks">;
   title: string;
   description?: string;
   status: TaskStatus;
@@ -16,6 +19,7 @@ interface Task {
   assignedTo?: string;
   dueDate?: number;
   tags?: string[];
+  _creationTime: number;
 }
 
 interface TaskBoardKanbanProps {
@@ -39,83 +43,43 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
 };
 
 export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanbanProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const tasks = useQuery(api.tasks.getAll, { limit: 500 });
+  const createTask = useMutation(api.tasks.create);
+  const updateTask = useMutation(api.tasks.update);
+  
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
+  const [creating, setCreating] = useState<TaskStatus | null>(null);
 
-  async function createTaskInColumn(status: TaskStatus) {
+  async function handleCreateTask(status: TaskStatus) {
+    if (creating) return;
+    setCreating(status);
+    
     try {
-      const tempId = `tmp-${Date.now()}`;
-      const tempTask: Task = {
-        id: tempId,
+      const taskId = await createTask({
         title: "New task",
         description: "",
         status,
         priority: "medium",
-        createdBy: "current-user",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      } as any;
-
-      // Optimistic add
-      setTasks((prev) => [tempTask, ...prev]);
-      onTaskSelect?.(tempId);
-
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: tempTask.title,
-          description: tempTask.description,
-          status,
-          priority: tempTask.priority,
-          createdBy: tempTask.createdBy,
-        }),
+        createdBy: "henry",
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        const newId = data.taskId || data.id;
-        if (newId && newId !== tempId) {
-          setTasks((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: newId } : t)));
-          onTaskSelect?.(newId);
-        }
+      
+      if (taskId) {
+        onTaskSelect?.(taskId);
       }
     } catch (error) {
       console.error("Failed to create task:", error);
-    }
-  }
-
-  useEffect(() => {
-    loadTasks();
-  }, []);
-
-  async function loadTasks() {
-    try {
-      const res = await fetch("/api/tasks");
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data.tasks || []);
-      }
-    } catch (error) {
-      console.error("Failed to load tasks:", error);
     } finally {
-      setLoading(false);
+      setCreating(null);
     }
   }
 
-  async function updateTaskStatus(taskId: string, newStatus: TaskStatus) {
+  async function handleUpdateStatus(taskId: Id<"tasks">, newStatus: TaskStatus) {
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+      await updateTask({
+        id: taskId,
+        updatedBy: "henry",
+        status: newStatus,
       });
-      if (res.ok) {
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-        );
-      }
     } catch (error) {
       console.error("Failed to update task:", error);
     }
@@ -125,14 +89,14 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     setDraggingTask(taskId);
   }
 
-  function handleDragOver(e: React.DragEvent, status: TaskStatus) {
+  function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
   }
 
   function handleDrop(e: React.DragEvent, status: TaskStatus) {
     e.preventDefault();
     if (draggingTask) {
-      updateTaskStatus(draggingTask, status);
+      handleUpdateStatus(draggingTask as Id<"tasks">, status);
       setDraggingTask(null);
     }
   }
@@ -143,26 +107,30 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
   }
 
-  if (loading) {
+  // Loading state
+  if (tasks === undefined) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-x-auto">
+    <div className="h-full overflow-x-auto py-4">
       <div className="flex gap-4 min-w-max pb-4 px-4">
         {COLUMNS.map((column) => {
-          const columnTasks = tasks.filter((t) => t.status === column.id);
+          const columnTasks = (tasks || []).filter((t) => t.status === column.id);
+          const isCreatingHere = creating === column.id;
+          
           return (
             <div
               key={column.id}
-              className="w-80 rounded-xl bg-zinc-900/60 border border-zinc-800/70 backdrop-blur-sm"
-              onDragOver={(e) => handleDragOver(e, column.id)}
+              className="w-80 rounded-xl bg-zinc-900/60 border border-zinc-800/70 backdrop-blur-sm flex flex-col max-h-[calc(100vh-12rem)]"
+              onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
+              {/* Column Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/70">
                 <h3 className="font-medium text-zinc-100">
                   {column.label}
@@ -171,61 +139,88 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
                   </span>
                 </h3>
                 <button
-                  className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-                  onClick={() => createTaskInColumn(column.id)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    isCreatingHere 
+                      ? 'bg-indigo-600 text-white' 
+                      : 'hover:bg-zinc-800 text-zinc-400'
+                  }`}
+                  onClick={() => handleCreateTask(column.id)}
+                  disabled={creating !== null}
                   title={`New ${column.label} task`}
                 >
-                  <Plus className="w-4 h-4 text-zinc-400" />
+                  <Plus className={`w-4 h-4 ${isCreatingHere ? 'animate-spin' : ''}`} />
                 </button>
               </div>
 
-              <div className="space-y-2 p-3">
+              {/* Column Body */}
+              <div className="flex-1 overflow-y-auto space-y-2 p-3">
+                {columnTasks.length === 0 && (
+                  <div className="text-center py-8 text-zinc-600 text-sm">
+                    No tasks
+                  </div>
+                )}
+                
                 {columnTasks.map((task) => (
                   <div
-                    key={task.id}
+                    key={task._id}
                     draggable
-                    onDragStart={() => handleDragStart(task.id)}
-                    onClick={() => onTaskSelect?.(task.id)}
-                    className={`rounded-lg border bg-zinc-950/40 p-3 cursor-pointer transition-colors hover:bg-zinc-900/60 hover:border-zinc-700 ${
-                      selectedTaskId === task.id ? "border-indigo-500/50 ring-1 ring-indigo-500/30" : "border-zinc-800/80"
+                    onDragStart={() => handleDragStart(task._id)}
+                    onClick={() => onTaskSelect?.(task._id)}
+                    className={`group rounded-lg border bg-zinc-950/40 p-3 cursor-pointer transition-all hover:bg-zinc-900/60 hover:border-zinc-700 ${
+                      selectedTaskId === task._id 
+                        ? "border-indigo-500/50 ring-1 ring-indigo-500/30" 
+                        : "border-zinc-800/80"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-medium text-sm text-zinc-100 leading-snug line-clamp-2">
-                        {task.title}
-                      </h4>
-                      <span
-                        className={`text-[11px] px-2 py-0.5 rounded-full border ${
-                          PRIORITY_COLORS[task.priority]
-                        }`}
-                      >
-                        {task.priority}
-                      </span>
-                    </div>
-
-                    {task.description && (
-                      <p className="text-xs text-zinc-400 mt-2 line-clamp-2">
-                        {task.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-2">
-                        {task.assignedTo && (
-                          <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] text-zinc-200">
-                            {task.assignedTo.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        {task.dueDate && (
-                          <span className="flex items-center gap-1 text-xs text-zinc-500">
-                            <Calendar className="w-3 h-3" />
-                            {formatDate(task.dueDate)}
+                    {/* Drag Handle */}
+                    <div className="flex items-start gap-2">
+                      <GripVertical className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab shrink-0 mt-0.5" />
+                      
+                      <div className="flex-1 min-w-0">
+                        {/* Title & Priority */}
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-medium text-sm text-zinc-100 leading-snug line-clamp-2">
+                            {task.title}
+                          </h4>
+                          <span
+                            className={`text-[11px] px-2 py-0.5 rounded-full border shrink-0 ${
+                              PRIORITY_COLORS[task.priority]
+                            }`}
+                          >
+                            {task.priority}
                           </span>
+                        </div>
+
+                        {/* Description */}
+                        {task.description && (
+                          <p className="text-xs text-zinc-400 mt-2 line-clamp-2">
+                            {task.description}
+                          </p>
                         )}
+
+                        {/* Meta */}
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center gap-2">
+                            {task.assignedTo && (
+                              <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] text-zinc-200">
+                                {task.assignedTo.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            {task.dueDate && (
+                              <span className="flex items-center gap-1 text-xs text-zinc-500">
+                                <Calendar className="w-3 h-3" />
+                                {formatDate(task.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                          {task.tags && task.tags.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Tag className="w-3 h-3 text-zinc-500" />
+                              <span className="text-xs text-zinc-500">{task.tags.length}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {task.tags && task.tags.length > 0 && (
-                        <Tag className="w-3 h-3 text-zinc-500" />
-                      )}
                     </div>
                   </div>
                 ))}

@@ -1,158 +1,77 @@
 import { NextResponse } from 'next/server';
-
-// Helper to fetch env vars from Railway for a service
-async function getServiceEnvVars(serviceId: string): Promise<Record<string, string>> {
-  const token = process.env.RAILWAY_API_TOKEN;
-  const projectId = process.env.RAILWAY_PROJECT_ID;
-  const environmentId = process.env.RAILWAY_ENVIRONMENT_ID || '7ae32d1d-c474-450b-b7f5-6f16e5d875cd';
-  
-  if (!token || !projectId) return {};
-  
-  try {
-    const res = await fetch('https://backboard.railway.com/graphql/v2', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query: `query($projectId: String!, $serviceId: String!, $environmentId: String!) {
-          variables(projectId: $projectId, serviceId: $serviceId, environmentId: $environmentId)
-        }`,
-        variables: { projectId, serviceId, environmentId },
-      }),
-    });
-    const data = await res.json();
-    return data?.data?.variables || {};
-  } catch {
-    return {};
-  }
-}
-
-// Find agent service by name from Railway
-async function findAgentService(agentId: string) {
-  const token = process.env.RAILWAY_API_TOKEN;
-  const projectId = process.env.RAILWAY_PROJECT_ID;
-  
-  if (!token || !projectId) return null;
-  
-  try {
-    const res = await fetch('https://backboard.railway.com/graphql/v2', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query: `query($projectId: String!) {
-          project(id: $projectId) {
-            services {
-              edges {
-                node {
-                  id
-                  name
-                  deployments(first: 1) {
-                    edges {
-                      node {
-                        staticUrl
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }`,
-        variables: { projectId },
-      }),
-    });
-    const data = await res.json();
-    const services = data?.data?.project?.services?.edges || [];
-    
-    // Find matching service (case-insensitive)
-    const service = services.find((s: any) => 
-      s.node.name.toLowerCase() === agentId.toLowerCase()
-    );
-    
-    if (!service) return null;
-    
-    const domain = service.node.deployments?.edges?.[0]?.node?.staticUrl;
-    return {
-      id: service.node.id,
-      name: service.node.name,
-      domain,
-    };
-  } catch {
-    return null;
-  }
-}
+import { getAgent } from '@/lib/agents/registry';
 
 /**
- * POST /api/agents/:agentId/message — Send a message to an agent
- * Fetches agent info from Railway directly
+ * POST /api/agents/:agentId/message — Send a message to an agent session
+ * 
+ * This uses OpenClaw's sessions_send to message agents through the gateway.
  */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params;
-  
-  // Find agent in Railway
-  const service = await findAgentService(agentId);
-  
-  if (!service) {
-    return NextResponse.json({ error: `Agent ${agentId} not found in Railway` }, { status: 404 });
+  const agent = getAgent(agentId);
+
+  if (!agent) {
+    return NextResponse.json({ error: 'Agent not found in roster' }, { status: 404 });
   }
-  
-  // Get gateway token from env vars
-  const envVars = await getServiceEnvVars(service.id);
-  const gatewayToken = envVars.CLAWDBOT_GATEWAY_TOKEN || envVars.GATEWAY_TOKEN;
-  const gatewayUrl = service.domain ? `https://${service.domain}` : null;
-  
+
+  const gatewayUrl = process.env.HENRY_GATEWAY_URL;
+  const gatewayToken = process.env.HENRY_GATEWAY_TOKEN;
+
   if (!gatewayUrl || !gatewayToken) {
-    return NextResponse.json(
-      { error: `Agent ${agentId} gateway not configured (url: ${!!gatewayUrl}, token: ${!!gatewayToken})` },
-      { status: 400 }
-    );
+    return NextResponse.json({ 
+      error: 'Gateway not configured. Set HENRY_GATEWAY_URL and HENRY_GATEWAY_TOKEN.',
+      hint: 'Gateway URL should be the localtunnel URL exposing Henry\'s gateway'
+    }, { status: 503 });
   }
-  
-  const body = await request.json();
-  const { message } = body;
-  
-  if (!message) {
-    return NextResponse.json(
-      { error: 'message is required' },
-      { status: 400 }
-    );
-  }
-  
-  // Send message to agent via Clawdbot API
+
   try {
-    const response = await fetch(`${gatewayUrl}/v1/responses`, {
+    const body = await request.json();
+    const { message } = body;
+
+    if (!message) {
+      return NextResponse.json({ error: 'Message required' }, { status: 400 });
+    }
+
+    // Use OpenClaw tools/invoke to send message to agent session
+    const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/tools/invoke`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${gatewayToken}`,
       },
       body: JSON.stringify({
-        model: 'clawdbot',
-        input: message,
+        tool: 'sessions_send',
+        params: {
+          sessionKey: agent.sessionKey,
+          message,
+        },
       }),
     });
-    
-    if (!response.ok) {
-      const error = await response.text();
-      return NextResponse.json({ success: false, error }, { status: response.status });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return NextResponse.json({ 
+        success: false, 
+        error: `Gateway error: ${res.status}`,
+        details: text 
+      }, { status: 502 });
     }
-    
-    const result = await response.json();
-    return NextResponse.json({
-      success: true,
+
+    const result = await res.json();
+    return NextResponse.json({ 
+      success: true, 
       agentId,
-      agentName: service.name,
-      response: result,
+      sessionKey: agent.sessionKey,
+      result 
     });
+
   } catch (error) {
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: String(error) 
+    }, { status: 500 });
   }
 }
