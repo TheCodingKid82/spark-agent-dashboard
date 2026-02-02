@@ -15,6 +15,8 @@ export interface ChatMessage {
     priority?: 'low' | 'normal' | 'high' | 'urgent';
     replyTo?: string;
     taskId?: string;
+    // For DM channels like "atlas-maia" (conversation identifier)
+    dmChannel?: string;
   };
   read?: boolean;
 }
