@@ -1,3 +1,20 @@
-export * from './types';
-export * as store from './store';
-export * from './router';
+// Stub: Chat module migrated to Convex
+export const store = {
+  saveMessage: async () => {},
+  getMessages: async () => [],
+  getConversation: async () => ({ messages: [] }),
+  registerAgent: async () => {},
+  getAgent: async () => null,
+  getAllAgents: async () => [],
+  updateAgentStatus: async () => {},
+  heartbeat: async () => {},
+  getTeamMessages: async () => [],
+  saveTeamMessage: async () => {},
+  getOnlineAgentCount: () => 0,
+  getAllMessages: async () => [],
+  getBroadcastMessages: async () => [],
+  getConversations: async () => [],
+  addMessage: async () => {},
+  removeAgent: async () => {},
+  getGroupChatMessages: async () => [],
+};
