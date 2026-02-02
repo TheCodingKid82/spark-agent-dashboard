@@ -37,8 +37,8 @@ export default function Sidebar({
 
   const filteredAgents = agents.filter((agent) => {
     const matchesSearch =
-      agent.name.toLowerCase().includes(search.toLowerCase()) ||
-      agent.role.toLowerCase().includes(search.toLowerCase());
+      (agent.name?.toLowerCase() || "").includes(search.toLowerCase()) ||
+      (agent.role?.toLowerCase() || "").includes(search.toLowerCase());
     const matchesFilter = filter === "all" || agent.status === filter;
     return matchesSearch && matchesFilter;
   });

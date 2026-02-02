@@ -256,7 +256,7 @@ export default function ChatPanel({ agents, isOpen, onClose, initialChatId, curr
         if (data.teamResponses && data.teamResponses.length > 0) {
           const agentIdByName = (name: string) => {
             const agent = agents.find(a => a.name === name);
-            return agent?.id || name.toLowerCase();
+            return agent?.id || (name?.toLowerCase() || "unknown");
           };
           
           data.teamResponses.forEach((tr: { agent: string; response: string }, i: number) => {

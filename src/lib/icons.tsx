@@ -45,7 +45,7 @@ export const AGENT_ICONS: Record<string, PhosphorIcon> = {
 
 // Get icon component for an agent
 export function getAgentIcon(agentId: string): PhosphorIcon {
-  return AGENT_ICONS[agentId.toLowerCase()] || Robot;
+  return AGENT_ICONS[agentId?.toLowerCase() || ""] || Robot;
 }
 
 // Render agent icon as JSX
@@ -149,7 +149,7 @@ const AGENT_COLORS: Record<string, string> = {
 
 export function AgentAvatar({ agentId, size = 'md', className = '', showStatus = false, status }: AgentAvatarProps) {
   const sizeConfig = AVATAR_SIZES[size];
-  const colorClass = AGENT_COLORS[agentId.toLowerCase()] || 'bg-zinc-800 text-zinc-400 border-zinc-700';
+  const colorClass = AGENT_COLORS[agentId?.toLowerCase() || ""] || 'bg-zinc-800 text-zinc-400 border-zinc-700';
   
   return (
     <div className={`relative ${className}`}>

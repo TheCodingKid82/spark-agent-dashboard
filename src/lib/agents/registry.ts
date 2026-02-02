@@ -46,7 +46,7 @@ export function loadRoster(): AgentRoster {
 
 export function getAgent(agentId: string): AgentRosterEntry | undefined {
   const roster = loadRoster();
-  return roster.agents.find(a => a.id.toLowerCase() === agentId.toLowerCase());
+  return roster.agents.find(a => (a.id?.toLowerCase() || "") === (agentId?.toLowerCase() || ""));
 }
 
 export function listAgents(): AgentRosterEntry[] {
