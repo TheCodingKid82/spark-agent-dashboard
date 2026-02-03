@@ -54,6 +54,7 @@ export default function Dashboard() {
     lastStatus: string | null;
     enabled: boolean;
   }>>({});
+  const [liveRunning, setLiveRunning] = useState<string[]>([]);
 
   // Refresh schedule status every 10 seconds
   useEffect(() => {
@@ -78,6 +79,25 @@ export default function Dashboard() {
     const interval = setInterval(loadCronStatuses, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Poll live running status every 5 seconds
+  useEffect(() => {
+    loadLiveStatus();
+    const interval = setInterval(loadLiveStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function loadLiveStatus() {
+    try {
+      const res = await fetch("/api/agents/live-status");
+      if (res.ok) {
+        const data = await res.json();
+        setLiveRunning(data.running || []);
+      }
+    } catch (error) {
+      console.error("Failed to load live status:", error);
+    }
+  }
 
   async function loadCronStatuses() {
     try {
@@ -246,8 +266,10 @@ export default function Dashboard() {
               agents.map((agent) => {
                 const schedule = scheduleStatuses.get(agent.id);
                 const cronStatus = cronStatuses[agent.id];
-                const isRunning = schedule?.isRunning ?? false;
-                const isNext = schedule?.isNext ?? false;
+                const isActuallyRunning = liveRunning.includes(agent.id);
+                const isScheduledNow = schedule?.isRunning ?? false;
+                const isRunning = isActuallyRunning || isScheduledNow;
+                const isNext = !isRunning && (schedule?.isNext ?? false);
                 
                 // Format last run time
                 const lastRunText = cronStatus?.lastRunAt 
@@ -312,7 +334,7 @@ export default function Dashboard() {
                         <div className="bg-zinc-800 border border-emerald-700/50 rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
                           <p className="text-xs text-emerald-400 font-medium flex items-center gap-1">
                             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                            Running now
+                            {isActuallyRunning ? "Working on task" : "Running now"}
                           </p>
                         </div>
                       </div>
