@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { calculateAgentStatuses, AgentRunStatus } from "@/lib/agent-schedule";
+import { AgentContextMenu } from "@/components/AgentContextMenu";
 
 interface Agent {
   id: string;
@@ -40,6 +41,18 @@ export default function Dashboard() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [tick, setTick] = useState(0); // For refreshing schedule status
+  const [contextMenu, setContextMenu] = useState<{
+    agentId: string;
+    agentName: string;
+    position: { x: number; y: number };
+  } | null>(null);
+  const [cronStatuses, setCronStatuses] = useState<Record<string, {
+    jobId: string;
+    lastRunAt: number | null;
+    nextRunAt: number | null;
+    lastStatus: string | null;
+    enabled: boolean;
+  }>>({});
 
   // Refresh schedule status every 10 seconds
   useEffect(() => {
@@ -56,7 +69,26 @@ export default function Dashboard() {
   // Load agents from roster
   useEffect(() => {
     loadAgents();
+    loadCronStatuses();
   }, []);
+
+  // Refresh cron statuses every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(loadCronStatuses, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function loadCronStatuses() {
+    try {
+      const res = await fetch("/api/agents/crons");
+      if (res.ok) {
+        const data = await res.json();
+        setCronStatuses(data.crons || {});
+      }
+    } catch (error) {
+      console.error("Failed to load cron statuses:", error);
+    }
+  }
 
   async function loadAgents() {
     try {
@@ -109,6 +141,28 @@ export default function Dashboard() {
   }
 
   const onlineCount = agents.filter((a) => a.status === "online").length;
+
+  // Helper to format time ago
+  function formatTimeAgo(timestamp: number): string {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return "just now";
+    if (minutes === 1) return "1m ago";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return "1h ago";
+    return `${hours}h ago`;
+  }
+
+  // Helper to format next run time
+  function formatNextRun(timestamp: number): string {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  }
 
   return (
     <div className="h-screen flex bg-zinc-950 grid-bg">
@@ -189,13 +243,32 @@ export default function Dashboard() {
             ) : (
               agents.map((agent) => {
                 const schedule = scheduleStatuses.get(agent.id);
+                const cronStatus = cronStatuses[agent.id];
                 const isRunning = schedule?.isRunning ?? false;
                 const isNext = schedule?.isNext ?? false;
+                
+                // Format last run time
+                const lastRunText = cronStatus?.lastRunAt 
+                  ? formatTimeAgo(cronStatus.lastRunAt)
+                  : null;
+                
+                // Format next run time  
+                const nextRunText = cronStatus?.nextRunAt
+                  ? formatNextRun(cronStatus.nextRunAt)
+                  : schedule?.formattedTime;
                 
                 return (
                   <div key={agent.id} className="relative group/agent">
                     <button
                       onClick={() => setSelectedAgent(agent)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({
+                          agentId: agent.id,
+                          agentName: agent.name,
+                          position: { x: e.clientX, y: e.clientY },
+                        });
+                      }}
                       className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-800/70 transition-colors group"
                     >
                       <div className="relative">
@@ -213,19 +286,20 @@ export default function Dashboard() {
                       </div>
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm text-zinc-200 truncate">{agent.name}</p>
-                        <p className="text-xs text-zinc-500 truncate">{agent.role}</p>
+                        <p className="text-xs text-zinc-500 truncate">
+                          {lastRunText ? `Ran ${lastRunText}` : agent.role}
+                        </p>
                       </div>
                       <MessageCircle className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
                     
                     {/* Tooltip for next agent */}
-                    {isNext && schedule && (
+                    {isNext && (
                       <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/agent:opacity-100 pointer-events-none transition-opacity">
                         <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
                           <p className="text-xs text-amber-400 font-medium">Next up</p>
-                          <p className="text-xs text-zinc-300">
-                            {schedule.formattedTime} ({schedule.timeUntil})
-                          </p>
+                          <p className="text-xs text-zinc-300">{nextRunText}</p>
+                          <p className="text-xs text-zinc-500 mt-1">Right-click for options</p>
                         </div>
                       </div>
                     )}
@@ -325,6 +399,27 @@ export default function Dashboard() {
         <AgentChatModal
           agent={selectedAgent}
           onClose={() => setSelectedAgent(null)}
+        />
+      )}
+
+      {/* Agent Context Menu (right-click) */}
+      {contextMenu && (
+        <AgentContextMenu
+          agentId={contextMenu.agentId}
+          agentName={contextMenu.agentName}
+          cronJobId={cronStatuses[contextMenu.agentId]?.jobId}
+          position={contextMenu.position}
+          onClose={() => setContextMenu(null)}
+          onRunNow={() => {
+            loadCronStatuses();
+            setContextMenu(null);
+          }}
+          lastRun={cronStatuses[contextMenu.agentId]?.lastRunAt 
+            ? formatTimeAgo(cronStatuses[contextMenu.agentId].lastRunAt!)
+            : undefined}
+          nextRun={cronStatuses[contextMenu.agentId]?.nextRunAt
+            ? formatNextRun(cronStatuses[contextMenu.agentId].nextRunAt!)
+            : undefined}
         />
       )}
     </div>
