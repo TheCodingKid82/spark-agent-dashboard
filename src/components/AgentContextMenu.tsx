@@ -48,16 +48,20 @@ export function AgentContextMenu({
   }, [onClose]);
 
   async function handleRunNow() {
-    if (!cronJobId || isRunning) return;
+    if (isRunning) return;
     setIsRunning(true);
     
     try {
       const res = await fetch(`/api/agents/${agentId}/run`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       });
       
       if (res.ok) {
         onRunNow();
+      } else {
+        console.error("Run failed:", await res.text());
       }
     } catch (error) {
       console.error("Failed to run agent:", error);
@@ -87,7 +91,7 @@ export function AgentContextMenu({
       {/* Run Now option */}
       <button
         onClick={handleRunNow}
-        disabled={!cronJobId || isRunning}
+        disabled={isRunning}
         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Play className={`w-4 h-4 text-emerald-400 ${isRunning ? "animate-pulse" : ""}`} />

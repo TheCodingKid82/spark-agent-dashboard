@@ -55,13 +55,14 @@ export async function GET(
     }
 
     const data = await res.json();
-    const sessions = data.sessions || [];
+    // Handle nested response structure from /tools/invoke
+    const sessions = data.result?.details?.sessions || data.sessions || [];
     
-    // Check if this agent has an active session
+    // Check if this agent has an active session (by label)
     const agentSession = sessions.find((s: any) => 
+      s.label === agentId ||
       s.sessionKey === agent.sessionKey || 
-      s.label === agent.id ||
-      s.agentId === agent.id
+      (s.key && s.key.includes(agentId))
     );
 
     return NextResponse.json({
@@ -70,7 +71,7 @@ export async function GET(
       agentName: agent.name,
       emoji: agent.emoji,
       role: agent.role,
-      sessionKey: agent.sessionKey,
+      sessionKey: agentSession?.key || agent.sessionKey,
       status: agentSession ? 'online' : 'offline',
       session: agentSession || null,
     });
