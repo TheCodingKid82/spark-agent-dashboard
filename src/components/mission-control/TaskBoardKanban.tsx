@@ -223,13 +223,20 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
                           <h4 className="font-medium text-sm text-zinc-100 leading-snug line-clamp-2">
                             {task.title}
                           </h4>
-                          <span
-                            className={`text-[11px] px-2 py-0.5 rounded-full border shrink-0 ${
-                              PRIORITY_COLORS[task.priority]
-                            }`}
-                          >
-                            {task.priority}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {task.assignedTo && (
+                              <span className="text-[11px] px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-300 border-emerald-500/20 capitalize">
+                                {task.assignedTo}
+                              </span>
+                            )}
+                            <span
+                              className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                                PRIORITY_COLORS[task.priority]
+                              }`}
+                            >
+                              {task.priority}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Description */}
