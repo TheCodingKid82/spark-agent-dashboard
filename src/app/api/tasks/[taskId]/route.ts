@@ -33,7 +33,8 @@ export async function GET(
 }
 
 /**
- * PATCH /api/tasks/:taskId — Update a task (for agents)
+ * PATCH /api/tasks/:taskId — Update a task (for agents or dashboard)
+ * Auto-triggers agent when assigned or when task needs retry (done → assigned)
  */
 export async function PATCH(
   request: NextRequest,
@@ -43,7 +44,12 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { status, assignedTo, title, description, priority, tags, updatedBy } = body;
+    const { status, assignedTo, title, description, priority, tags, updatedBy, oldStatus, oldAssignedTo } = body;
+
+    // Get current task state for comparison
+    const currentTask = await convex.query(api.tasks.getById, { 
+      id: taskId as Id<"tasks"> 
+    });
 
     // Build update object
     const updates: Record<string, any> = {
@@ -60,10 +66,40 @@ export async function PATCH(
 
     await convex.mutation(api.tasks.update, updates);
 
+    // Determine if we need to trigger the agent
+    let triggerAction: string | null = null;
+    const effectiveAssignee = assignedTo ?? currentTask?.assignedTo;
+    const effectiveOldStatus = oldStatus ?? currentTask?.status;
+    const effectiveOldAssignee = oldAssignedTo ?? currentTask?.assignedTo;
+
+    // New assignment
+    if (assignedTo && assignedTo !== effectiveOldAssignee) {
+      triggerAction = 'assigned';
+    }
+    // Retry: moved from done back to assigned
+    else if (status === 'assigned' && effectiveOldStatus === 'done') {
+      triggerAction = 'retry';
+    }
+
+    // Trigger agent if needed
+    if (triggerAction && effectiveAssignee) {
+      const baseUrl = request.nextUrl.origin;
+      fetch(`${baseUrl}/api/agents/trigger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: effectiveAssignee,
+          taskId,
+          action: triggerAction,
+        }),
+      }).catch(err => console.error('Failed to trigger agent:', err));
+    }
+
     return NextResponse.json({ 
       success: true, 
       taskId,
       updated: Object.keys(updates).filter(k => k !== 'id' && k !== 'updatedBy'),
+      triggered: triggerAction ? { agent: effectiveAssignee, action: triggerAction } : null,
     });
   } catch (error) {
     return NextResponse.json({ 

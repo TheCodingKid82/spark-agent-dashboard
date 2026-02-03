@@ -78,15 +78,45 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     }
   }
 
-  async function handleUpdateStatus(taskId: Id<"tasks">, newStatus: TaskStatus) {
+  async function handleUpdateStatus(taskId: Id<"tasks">, newStatus: TaskStatus, oldStatus?: TaskStatus) {
     try {
+      // Get the task to find assignee and old status
+      const task = tasks?.find(t => t._id === taskId);
+      const effectiveOldStatus = oldStatus ?? task?.status;
+      
       await updateTask({
         id: taskId,
-        updatedBy: "henry",
+        updatedBy: "andrew",
         status: newStatus,
       });
+
+      // Trigger agent if:
+      // 1. Moving to assigned column with an assignee
+      // 2. Moving from done back to assigned (retry)
+      const shouldTrigger = task?.assignedTo && (
+        (newStatus === 'assigned' && effectiveOldStatus === 'done') || // Retry
+        (newStatus === 'assigned' && effectiveOldStatus === 'inbox')   // New assignment
+      );
+
+      if (shouldTrigger) {
+        const action = effectiveOldStatus === 'done' ? 'retry' : 'assigned';
+        fetch('/api/agents/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: task.assignedTo,
+            taskId: taskId,
+            action,
+          }),
+        }).then(() => {
+          showToast(`Triggered ${task.assignedTo} to work on task`, 'success');
+        }).catch(err => {
+          console.error('Failed to trigger agent:', err);
+        });
+      }
     } catch (error) {
       console.error("Failed to update task:", error);
+      showToast("Failed to update task", "error");
     }
   }
 
@@ -98,10 +128,12 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     e.preventDefault();
   }
 
-  function handleDrop(e: React.DragEvent, status: TaskStatus) {
+  function handleDrop(e: React.DragEvent, newStatus: TaskStatus) {
     e.preventDefault();
     if (draggingTask) {
-      handleUpdateStatus(draggingTask as Id<"tasks">, status);
+      const task = tasks?.find(t => t._id === draggingTask);
+      const oldStatus = task?.status;
+      handleUpdateStatus(draggingTask as Id<"tasks">, newStatus, oldStatus);
       setDraggingTask(null);
     }
   }
