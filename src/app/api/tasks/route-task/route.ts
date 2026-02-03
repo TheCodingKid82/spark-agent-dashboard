@@ -3,19 +3,64 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * POST /api/tasks/route-task
  * 
- * Uses the gateway (Henry) to intelligently route a task to the best agent.
- * This replaces keyword matching with AI-powered routing.
+ * Routes tasks to agents using keyword matching.
+ * Fast and reliable - no external dependencies.
  */
 
 const AGENTS = [
-  { id: 'atlas', name: 'Atlas', role: 'Head of Announcements', domain: 'Announcements app strategy, conversion, churn, pricing decisions' },
-  { id: 'maia', name: 'Maia', role: 'Engineer (Announcements)', domain: 'Announcements app code, bugs, features, deployment' },
-  { id: 'apollo', name: 'Apollo', role: 'Head of Agency', domain: 'Client projects, Booked.Travel, Insider Expeditions, Matt communication' },
-  { id: 'orpheus', name: 'Orpheus', role: 'Engineer (Client)', domain: 'Client project code, Booked.Travel bugs and features' },
-  { id: 'artemis', name: 'Artemis', role: 'Head of Funnels', domain: 'Funnels app strategy, product decisions' },
-  { id: 'callisto', name: 'Callisto', role: 'Engineer (Funnels)', domain: 'Funnels app code, architecture, implementation' },
-  { id: 'iris', name: 'Iris', role: 'Customer Intelligence', domain: 'Research, customer feedback, churn analysis, competitive analysis' },
+  { id: 'atlas', name: 'Atlas', role: 'Head of Announcements', keywords: ['announcements', 'conversion', 'churn', 'pricing', 'mrr', 'subscription', 'paywall', 'whop'] },
+  { id: 'maia', name: 'Maia', role: 'Engineer (Announcements)', keywords: ['bug', 'fix', 'deploy', 'code', 'error', 'crash', 'feature', 'implement'] },
+  { id: 'apollo', name: 'Apollo', role: 'Head of Agency', keywords: ['client', 'booked', 'travel', 'insider', 'expeditions', 'matt', 'agency'] },
+  { id: 'orpheus', name: 'Orpheus', role: 'Engineer (Client)', keywords: ['booked bug', 'travel fix', 'client code'] },
+  { id: 'artemis', name: 'Artemis', role: 'Head of Funnels', keywords: ['funnel', 'funnels', 'landing', 'page builder'] },
+  { id: 'callisto', name: 'Callisto', role: 'Engineer (Funnels)', keywords: ['funnel bug', 'funnel code', 'funnel feature'] },
+  { id: 'iris', name: 'Iris', role: 'Customer Intelligence', keywords: ['research', 'feedback', 'survey', 'analyze', 'customer', 'competitor', 'market'] },
 ];
+
+// Priority order for matching (Heads first for ambiguous tasks)
+const PRIORITY_ORDER = ['atlas', 'apollo', 'artemis', 'maia', 'orpheus', 'callisto', 'iris'];
+
+function routeTask(title: string, description?: string): { agentId: string; agentName: string; reason: string } | null {
+  const text = `${title} ${description || ''}`.toLowerCase();
+  
+  // Score each agent based on keyword matches
+  const scores: { agent: typeof AGENTS[0]; score: number }[] = [];
+  
+  for (const agent of AGENTS) {
+    let score = 0;
+    for (const keyword of agent.keywords) {
+      if (text.includes(keyword.toLowerCase())) {
+        score += keyword.includes(' ') ? 3 : 1; // Multi-word matches score higher
+      }
+    }
+    if (score > 0) {
+      scores.push({ agent, score });
+    }
+  }
+  
+  if (scores.length === 0) {
+    // Default to Atlas (Head of primary product) for unmatched tasks
+    const defaultAgent = AGENTS.find(a => a.id === 'atlas')!;
+    return {
+      agentId: defaultAgent.id,
+      agentName: defaultAgent.name,
+      reason: 'Default assignment (no keyword match)',
+    };
+  }
+  
+  // Sort by score (desc), then by priority order
+  scores.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return PRIORITY_ORDER.indexOf(a.agent.id) - PRIORITY_ORDER.indexOf(b.agent.id);
+  });
+  
+  const best = scores[0];
+  return {
+    agentId: best.agent.id,
+    agentName: best.agent.name,
+    reason: `Matched keywords for ${best.agent.role}`,
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,77 +71,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Title required' }, { status: 400 });
     }
 
-    const gatewayUrl = process.env.HENRY_GATEWAY_URL;
-    const gatewayToken = process.env.HENRY_GATEWAY_TOKEN;
-
-    if (!gatewayUrl || !gatewayToken) {
-      // Fallback to simple routing if gateway not configured
+    const result = routeTask(title, description);
+    
+    if (!result) {
       return NextResponse.json({
         success: true,
         assignedTo: null,
-        reason: 'Gateway not configured - manual assignment required',
+        reason: 'Could not determine assignment',
+        taskId,
       });
     }
 
-    // Build the routing prompt
-    const agentList = AGENTS.map(a => `- ${a.id} (${a.name}): ${a.role} - ${a.domain}`).join('\n');
-    
-    const routingPrompt = `You are a task router for Spark Studio. Analyze this task and decide which agent should handle it.
-
-TASK:
-Title: ${title}
-Description: ${description || 'No description'}
-
-AVAILABLE AGENTS:
-${agentList}
-
-RULES:
-- For strategy/decisions → assign to Head (atlas, apollo, artemis)
-- For implementation/bugs/code → assign to Engineer (maia, orpheus, callisto)
-- For research/analysis → assign to iris
-- If unclear, assign to the relevant Head to triage
-
-Respond with ONLY the agent id (e.g., "atlas" or "maia"). Nothing else.`;
-
-    // Call gateway to route
-    const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/tools/invoke`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${gatewayToken}`,
-      },
-      body: JSON.stringify({
-        tool: 'sessions_spawn',
-        params: {
-          task: routingPrompt,
-          label: `route-task-${taskId || Date.now()}`,
-          cleanup: 'delete',
-          timeoutSeconds: 30,
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('Gateway routing failed:', text);
-      return NextResponse.json({
-        success: false,
-        assignedTo: null,
-        error: 'Gateway routing failed',
-      });
-    }
-
-    const result = await res.json();
-    
-    // Extract agent ID from response
-    const responseText = (result.response || result.result || '').toLowerCase().trim();
-    const matchedAgent = AGENTS.find(a => responseText.includes(a.id));
-    
     return NextResponse.json({
       success: true,
-      assignedTo: matchedAgent?.id || null,
-      agentName: matchedAgent?.name || null,
-      reason: responseText,
+      assignedTo: result.agentId,
+      agentName: result.agentName,
+      reason: result.reason,
       taskId,
     });
 
