@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Calendar, Tag, GripVertical } from "lucide-react";
+import { useState } from "react";
+import { Plus, Calendar, Tag, GripVertical, User } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { useToast } from "@/components/Toast";
 
 type TaskStatus = "inbox" | "assigned" | "in_progress" | "review" | "done";
 type TaskPriority = "low" | "medium" | "high" | "urgent";
@@ -46,6 +47,7 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
   const tasks = useQuery(api.tasks.getAll, { limit: 500 });
   const createTask = useMutation(api.tasks.create);
   const updateTask = useMutation(api.tasks.update);
+  const { showToast } = useToast();
   
   const [draggingTask, setDraggingTask] = useState<string | null>(null);
   const [creating, setCreating] = useState<TaskStatus | null>(null);
@@ -89,15 +91,24 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
                 assignedTo: routeData.assignedTo,
                 status: "assigned",
               });
-              console.log(`Task routed to ${routeData.agentName}: ${routeData.reason}`);
+              showToast(
+                `Assigned to ${routeData.agentName || routeData.assignedTo}`,
+                "success"
+              );
+            } else {
+              showToast("Task created in Inbox", "info");
             }
+          } else {
+            showToast("Task created in Inbox", "info");
           }
         } catch (routeError) {
           console.warn("Gateway routing unavailable, task stays in inbox:", routeError);
+          showToast("Task created in Inbox (routing unavailable)", "warning");
         }
       }
     } catch (error) {
       console.error("Failed to create task:", error);
+      showToast("Failed to create task", "error");
     } finally {
       setCreating(null);
     }

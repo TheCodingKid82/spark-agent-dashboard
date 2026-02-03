@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { calculateAgentStatuses, AgentRunStatus } from "@/lib/agent-schedule";
 import { AgentContextMenu } from "@/components/AgentContextMenu";
+import { ToastProvider } from "@/components/Toast";
 
 interface Agent {
   id: string;
@@ -165,6 +166,7 @@ export default function Dashboard() {
   }
 
   return (
+    <ToastProvider>
     <div className="h-screen flex bg-zinc-950 grid-bg">
       {/* Sidebar */}
       <aside className="w-64 bg-zinc-950/60 backdrop-blur-xl border-r border-zinc-800/70 flex flex-col">
@@ -423,5 +425,6 @@ export default function Dashboard() {
         />
       )}
     </div>
+    </ToastProvider>
   );
 }
