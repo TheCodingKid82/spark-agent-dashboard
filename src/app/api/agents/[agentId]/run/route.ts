@@ -1,22 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAgent } from '@/lib/agents/registry';
 
-// Map agent IDs to their cron job IDs (from gateway)
-const AGENT_CRON_JOBS: Record<string, string> = {
-  atlas: "cb3d0559-116a-453b-91c7-c4f42d9273ad",
-  maia: "240168a9-3166-4a5c-ad04-dff0aeb63e1c",
-  apollo: "f8bf32dd-9791-45eb-a97a-ce7f2358e2e8",
-  orpheus: "aacf2cc0-c3ce-4a12-851d-61204e6b7fac",
-  artemis: "c0ec0d55-3681-42d0-9796-746b0d3b1e4f",
-  callisto: "7908fbd6-d2d5-4cb2-9c6f-6044d9f15f49",
-  iris: "85770874-cab7-4f37-8a15-e8ccdeed9c46",
-};
-
 /**
- * POST /api/agents/:agentId/run — Trigger agent heartbeat immediately
+ * POST /api/agents/:agentId/run — Send message to agent's persistent session
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params;
@@ -26,11 +15,6 @@ export async function POST(
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  const cronJobId = AGENT_CRON_JOBS[agentId];
-  if (!cronJobId) {
-    return NextResponse.json({ error: 'No cron job configured for agent' }, { status: 400 });
-  }
-
   const gatewayUrl = process.env.HENRY_GATEWAY_URL;
   const gatewayToken = process.env.HENRY_GATEWAY_TOKEN;
 
@@ -38,7 +22,18 @@ export async function POST(
     return NextResponse.json({ error: 'Gateway not configured' }, { status: 500 });
   }
 
+  // Get optional message from request body
+  let message = `HEARTBEAT: Check Mission Control for tasks assigned to '${agentId}'. If you have assigned tasks, work on them. Update WORKING.md with your progress. If nothing needs attention, reply HEARTBEAT_OK.`;
+  
   try {
+    const body = await request.json().catch(() => ({}));
+    if (body.message) {
+      message = body.message;
+    }
+  } catch {}
+
+  try {
+    // Send message to agent's labeled persistent session
     const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/tools/invoke`, {
       method: 'POST',
       headers: {
@@ -46,16 +41,49 @@ export async function POST(
         'Authorization': `Bearer ${gatewayToken}`,
       },
       body: JSON.stringify({
-        tool: 'cron',
+        tool: 'sessions_send',
         params: {
-          action: 'run',
-          jobId: cronJobId,
+          label: agentId,
+          message: message,
+          timeoutSeconds: 300, // 5 minutes for real work
         },
       }),
     });
 
     if (!res.ok) {
       const text = await res.text();
+      
+      // If session not found, try to spawn it
+      if (text.includes('No session found')) {
+        const spawnRes = await fetch(`${gatewayUrl.replace(/\/$/, '')}/tools/invoke`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${gatewayToken}`,
+          },
+          body: JSON.stringify({
+            tool: 'sessions_spawn',
+            params: {
+              task: `You are ${agent.name}, ${agent.role} at Spark Studio. Your workspace is C:\\Users\\theul\\clawd\\agents\\${agentId}. Read your SOUL.md and HEARTBEAT.md. ${message}`,
+              label: agentId,
+              cleanup: 'keep',
+              timeoutSeconds: 300,
+            },
+          }),
+        });
+
+        if (spawnRes.ok) {
+          const spawnData = await spawnRes.json();
+          return NextResponse.json({
+            success: true,
+            agentId,
+            agentName: agent.name,
+            action: 'spawned',
+            result: spawnData,
+          });
+        }
+      }
+      
       return NextResponse.json({ 
         error: 'Gateway error', 
         details: text 
@@ -68,7 +96,7 @@ export async function POST(
       success: true,
       agentId,
       agentName: agent.name,
-      cronJobId,
+      action: 'messaged',
       result: data,
     });
 
