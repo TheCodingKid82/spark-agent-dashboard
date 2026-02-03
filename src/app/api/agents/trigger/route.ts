@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { agentId, taskId, action } = await request.json();
+    const { agentId, taskId, action, message: customMessage } = await request.json();
 
     if (!agentId) {
       return NextResponse.json({ error: 'agentId required' }, { status: 400 });
@@ -22,10 +22,15 @@ export async function POST(request: NextRequest) {
     // Build the message based on action
     let message = `HEARTBEAT: Check Mission Control for your assigned tasks.`;
     
-    if (action === 'assigned' && taskId) {
+    if (customMessage) {
+      // Use custom message if provided (for @mentions)
+      message = customMessage;
+    } else if (action === 'assigned' && taskId) {
       message = `NEW TASK ASSIGNED: You have a new task (${taskId}). Check Mission Control immediately and start working. Update status to in_progress and add a comment when you begin.`;
     } else if (action === 'retry' && taskId) {
       message = `TASK RETRY: Task ${taskId} was marked incomplete and needs another attempt. Check Mission Control, review what went wrong, and try again.`;
+    } else if (action === 'mention' && taskId) {
+      message = `@MENTION: You were tagged in a comment on task ${taskId}. Check Mission Control and respond to the mention.`;
     }
 
     // Trigger the agent via gateway

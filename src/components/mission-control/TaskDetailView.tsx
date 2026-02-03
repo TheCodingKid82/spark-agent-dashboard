@@ -92,16 +92,31 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
 
     setIsSubmitting(true);
     try {
-      await createMessage({
-        taskId: task._id,
-        content: newComment,
-        authorId: "henry",
-        authorType: "agent",
-        messageType: "comment",
+      // Use REST API to handle @mentions and trigger agents
+      const res = await fetch(`/api/tasks/${task._id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: newComment,
+          authorId: "andrew",
+          authorType: "human",
+        }),
       });
-      setNewComment("");
+      
+      if (res.ok) {
+        const data = await res.json();
+        setNewComment("");
+        
+        // Show toast if agents were triggered
+        if (data.triggeredAgents?.length > 0) {
+          showToast(`Triggered ${data.triggeredAgents.join(", ")} 🚀`, "success");
+        }
+      } else {
+        throw new Error("Failed to post comment");
+      }
     } catch (error) {
       console.error("Failed to submit comment:", error);
+      showToast("Failed to post comment", "error");
     } finally {
       setIsSubmitting(false);
     }

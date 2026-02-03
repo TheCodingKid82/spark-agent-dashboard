@@ -29,7 +29,8 @@ export async function GET(
 }
 
 /**
- * POST /api/tasks/:taskId/comments — Add a comment to a task (for agents)
+ * POST /api/tasks/:taskId/comments — Add a comment to a task
+ * Automatically triggers mentioned agents (@atlas, @apollo, etc.)
  */
 export async function POST(
   request: NextRequest,
@@ -39,24 +40,58 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { content, authorId } = body;
+    const { content, authorId, authorType } = body;
 
     if (!content) {
       return NextResponse.json({ error: 'Content required' }, { status: 400 });
     }
 
+    // Extract @mentions from content
+    const mentionRegex = /@(\w+)/g;
+    const mentions: string[] = [];
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      mentions.push(match[1].toLowerCase());
+    }
+
+    // Create the comment
     const messageId = await convex.mutation(api.messages.create, {
       taskId: taskId as Id<"tasks">,
       content,
-      authorId: authorId || 'agent',
-      authorType: 'agent',
+      authorId: authorId || 'andrew',
+      authorType: authorType || 'human',
       messageType: 'comment',
     });
+
+    // Trigger mentioned agents immediately
+    const agentIds = ['atlas', 'maia', 'apollo', 'orpheus', 'artemis', 'callisto', 'iris'];
+    const triggeredAgents: string[] = [];
+    
+    for (const mention of mentions) {
+      if (agentIds.includes(mention)) {
+        // Trigger the agent via the trigger endpoint
+        const baseUrl = request.nextUrl.origin;
+        fetch(`${baseUrl}/api/agents/trigger`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId: mention,
+            taskId,
+            action: 'mention',
+            message: `You were mentioned by ${authorId || 'andrew'} on task ${taskId}: "${content}"`,
+          }),
+        }).catch(err => console.error(`Failed to trigger ${mention}:`, err));
+        
+        triggeredAgents.push(mention);
+      }
+    }
 
     return NextResponse.json({ 
       success: true, 
       messageId,
       taskId,
+      mentions,
+      triggeredAgents,
     });
   } catch (error) {
     return NextResponse.json({ 
