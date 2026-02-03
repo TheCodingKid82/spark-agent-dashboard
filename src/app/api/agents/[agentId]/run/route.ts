@@ -42,7 +42,7 @@ export async function POST(
       },
       body: JSON.stringify({
         tool: 'sessions_spawn',
-        params: {
+        args: {
           task: `You are ${agent.name}, ${agent.role} at Spark Studio. Your workspace is C:\\Users\\theul\\clawd\\agents\\${agentId}. Read your SOUL.md and HEARTBEAT.md. ${message}`,
           label: agentId,
           cleanup: 'keep',

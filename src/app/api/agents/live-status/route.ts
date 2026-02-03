@@ -24,7 +24,7 @@ export async function GET() {
       },
       body: JSON.stringify({
         tool: 'sessions_list',
-        params: {
+        args: {
           activeMinutes: 2, // Only sessions active in last 2 minutes
         },
       }),

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         tool: 'sessions_spawn',
-        params: {
+        args: {
           task: `You are an agent at Spark Studio. Your workspace is C:\\Users\\theul\\clawd\\agents\\${agentId}. Read your HEARTBEAT.md for instructions. ${message}`,
           label: agentId,
           cleanup: 'keep',
