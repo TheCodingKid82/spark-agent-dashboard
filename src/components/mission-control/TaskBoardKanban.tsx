@@ -57,54 +57,18 @@ export function TaskBoardKanban({ onTaskSelect, selectedTaskId }: TaskBoardKanba
     setCreating(status);
     
     try {
-      // Create task first
+      // Create task - stays in inbox until user fills in details
       const taskId = await createTask({
         title: "New task",
         description: "",
-        status: "inbox", // Always start in inbox
+        status: "inbox", // Always start in inbox, no auto-routing
         priority: "medium",
         createdBy: "andrew",
       });
       
       if (taskId) {
-        onTaskSelect?.(taskId);
-        
-        // Use gateway to intelligently route the task
-        try {
-          const routeRes = await fetch("/api/tasks/route-task", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: "New task",
-              description: "",
-              taskId: taskId,
-            }),
-          });
-          
-          if (routeRes.ok) {
-            const routeData = await routeRes.json();
-            if (routeData.assignedTo) {
-              // Update task with assignment
-              await updateTask({
-                id: taskId,
-                updatedBy: "system",
-                assignedTo: routeData.assignedTo,
-                status: "assigned",
-              });
-              showToast(
-                `Assigned to ${routeData.agentName || routeData.assignedTo}`,
-                "success"
-              );
-            } else {
-              showToast("Task created in Inbox", "info");
-            }
-          } else {
-            showToast("Task created in Inbox", "info");
-          }
-        } catch (routeError) {
-          console.warn("Gateway routing unavailable, task stays in inbox:", routeError);
-          showToast("Task created in Inbox (routing unavailable)", "warning");
-        }
+        onTaskSelect?.(taskId); // Open for editing
+        showToast("Task created - fill in details to assign", "info");
       }
     } catch (error) {
       console.error("Failed to create task:", error);

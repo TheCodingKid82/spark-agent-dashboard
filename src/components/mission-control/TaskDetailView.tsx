@@ -17,10 +17,21 @@ import { AgentIcon } from "@/lib/icons";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { useToast } from "@/components/Toast";
 
 const STATUS_OPTIONS = ["inbox", "assigned", "in_progress", "review", "done"] as const;
 type TaskStatus = (typeof STATUS_OPTIONS)[number];
 type TaskPriority = "low" | "medium" | "high" | "urgent";
+
+const AGENTS = [
+  { id: "atlas", name: "Atlas", role: "Head of Announcements" },
+  { id: "maia", name: "Maia", role: "Engineer (Announcements)" },
+  { id: "apollo", name: "Apollo", role: "Head of Agency" },
+  { id: "orpheus", name: "Orpheus", role: "Engineer (Client)" },
+  { id: "artemis", name: "Artemis", role: "Head of Funnels" },
+  { id: "callisto", name: "Callisto", role: "Engineer (Funnels)" },
+  { id: "iris", name: "Iris", role: "Customer Intelligence" },
+];
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: "text-zinc-400",
@@ -56,6 +67,7 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const { showToast } = useToast();
 
   const task = taskData?.task;
   const messages = taskData?.messages || [];
@@ -105,8 +117,8 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
         description: editDescription,
       });
       
-      // If task is unassigned, use gateway to route it
-      if (!task.assignedTo && task.status === "inbox") {
+      // If task is unassigned and has real content, auto-route it
+      if (!task.assignedTo && task.status === "inbox" && editTitle !== "New task") {
         try {
           const routeRes = await fetch("/api/tasks/route-task", {
             method: "POST",
@@ -127,16 +139,23 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
                 assignedTo: routeData.assignedTo,
                 status: "assigned",
               });
+              showToast(`Assigned to ${routeData.agentName}`, "success");
+            } else {
+              showToast("Saved - select an agent to assign", "info");
             }
           }
         } catch (routeErr) {
-          console.warn("Gateway routing unavailable:", routeErr);
+          console.warn("Routing unavailable:", routeErr);
+          showToast("Saved - select an agent to assign", "info");
         }
+      } else {
+        showToast("Task updated", "success");
       }
       
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update task:", error);
+      showToast("Failed to save", "error");
     }
   }
 
@@ -301,14 +320,34 @@ export function TaskDetailView({ taskId, onClose, onStatusChange }: TaskDetailVi
                 <span className="text-zinc-200 capitalize">{task.createdBy}</span>
               </div>
 
-              {task.assignedTo && (
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-zinc-500" />
-                  <span className="text-zinc-400">Assigned to:</span>
-                  <AgentIcon agentId={task.assignedTo} size={20} />
-                  <span className="text-zinc-200 capitalize">{task.assignedTo}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 text-zinc-500" />
+                <span className="text-zinc-400">Assigned to:</span>
+                <select
+                  value={task.assignedTo || ""}
+                  onChange={async (e) => {
+                    const newAssignee = e.target.value || undefined;
+                    try {
+                      await updateTask({
+                        id: task._id,
+                        updatedBy: "andrew",
+                        assignedTo: newAssignee,
+                        status: newAssignee ? "assigned" : "inbox",
+                      });
+                    } catch (error) {
+                      console.error("Failed to update assignee:", error);
+                    }
+                  }}
+                  className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                >
+                  <option value="">Unassigned</option>
+                  {AGENTS.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.name} - {agent.role}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {task.dueDate && (
                 <div className="flex items-center gap-2 text-sm">
