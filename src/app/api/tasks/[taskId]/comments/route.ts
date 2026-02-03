@@ -39,7 +39,7 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { content, authorId, mentions } = body;
+    const { content, authorId } = body;
 
     if (!content) {
       return NextResponse.json({ error: 'Content required' }, { status: 400 });
@@ -51,7 +51,6 @@ export async function POST(
       authorId: authorId || 'agent',
       authorType: 'agent',
       messageType: 'comment',
-      mentions: mentions || [],
     });
 
     return NextResponse.json({ 
