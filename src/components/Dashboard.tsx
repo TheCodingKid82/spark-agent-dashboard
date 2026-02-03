@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   ActivityFeed, 
   TaskBoardKanban, 
@@ -20,6 +20,7 @@ import {
   MessageCircle,
   RefreshCw
 } from "lucide-react";
+import { calculateAgentStatuses, AgentRunStatus } from "@/lib/agent-schedule";
 
 interface Agent {
   id: string;
@@ -27,6 +28,7 @@ interface Agent {
   role: string;
   emoji?: string;
   sessionKey: string;
+  heartbeatCron?: string;
   status?: "online" | "offline" | "checking";
 }
 
@@ -37,6 +39,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [tick, setTick] = useState(0); // For refreshing schedule status
+
+  // Refresh schedule status every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calculate agent run statuses based on cron schedules
+  const scheduleStatuses = useMemo(() => {
+    return calculateAgentStatuses(agents);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents, tick]);
 
   // Load agents from roster
   useEffect(() => {
@@ -54,6 +69,7 @@ export default function Dashboard() {
           role: a.agentRole || a.role,
           emoji: a.emoji,
           sessionKey: a.sessionKey,
+          heartbeatCron: a.heartbeatCron,
           status: "checking" as const,
         }));
         setAgents(agentList);
@@ -171,31 +187,63 @@ export default function Dashboard() {
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-400" />
               </div>
             ) : (
-              agents.map((agent) => (
-                <button
-                  key={agent.id}
-                  onClick={() => setSelectedAgent(agent)}
-                  className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-800/70 transition-colors group"
-                >
-                  <div className="relative">
-                    <AgentIcon agentId={agent.id} size={28} />
-                    <div
-                      className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-zinc-900 ${
-                        agent.status === "online"
-                          ? "bg-emerald-500"
-                          : agent.status === "checking"
-                          ? "bg-amber-500 animate-pulse"
-                          : "bg-zinc-600"
-                      }`}
-                    />
+              agents.map((agent) => {
+                const schedule = scheduleStatuses.get(agent.id);
+                const isRunning = schedule?.isRunning ?? false;
+                const isNext = schedule?.isNext ?? false;
+                
+                return (
+                  <div key={agent.id} className="relative group/agent">
+                    <button
+                      onClick={() => setSelectedAgent(agent)}
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-zinc-800/70 transition-colors group"
+                    >
+                      <div className="relative">
+                        <AgentIcon agentId={agent.id} size={28} />
+                        {/* Schedule indicator (green=running, yellow=next) */}
+                        <div
+                          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-zinc-900 transition-colors ${
+                            isRunning
+                              ? "bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50"
+                              : isNext
+                              ? "bg-amber-400"
+                              : "bg-zinc-600"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-sm text-zinc-200 truncate">{agent.name}</p>
+                        <p className="text-xs text-zinc-500 truncate">{agent.role}</p>
+                      </div>
+                      <MessageCircle className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </button>
+                    
+                    {/* Tooltip for next agent */}
+                    {isNext && schedule && (
+                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/agent:opacity-100 pointer-events-none transition-opacity">
+                        <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                          <p className="text-xs text-amber-400 font-medium">Next up</p>
+                          <p className="text-xs text-zinc-300">
+                            {schedule.formattedTime} ({schedule.timeUntil})
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Tooltip for running agent */}
+                    {isRunning && (
+                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/agent:opacity-100 pointer-events-none transition-opacity">
+                        <div className="bg-zinc-800 border border-emerald-700/50 rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                          <p className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                            Running now
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm text-zinc-200 truncate">{agent.name}</p>
-                    <p className="text-xs text-zinc-500 truncate">{agent.role}</p>
-                  </div>
-                  <MessageCircle className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>
