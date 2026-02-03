@@ -78,6 +78,34 @@ export function AgentLogs() {
   }
 
   function formatContent(content: string) {
+    // Try to parse JSON content and extract readable text
+    try {
+      // Check if it looks like JSON array (assistant messages)
+      if (content.startsWith('[{')) {
+        const parsed = JSON.parse(content);
+        const parts: string[] = [];
+        
+        for (const item of parsed) {
+          if (item.type === 'text' && item.text) {
+            // Extract the actual text, skip thinking signatures
+            parts.push(item.text);
+          } else if (item.type === 'toolCall') {
+            // Show tool calls in a readable way
+            parts.push(`🔧 ${item.name}()`);
+          }
+          // Skip 'thinking' type entirely - too verbose
+        }
+        
+        const result = parts.join(' ').trim();
+        if (result) {
+          return result.length > 500 ? result.slice(0, 500) + "..." : result;
+        }
+        return "[processing...]";
+      }
+    } catch {
+      // Not JSON, use as-is
+    }
+    
     // Truncate very long content
     if (content.length > 500) {
       return content.slice(0, 500) + "...";
@@ -166,25 +194,38 @@ export function AgentLogs() {
           </div>
         )}
         
-        {logs.map((log, idx) => (
-          <div 
-            key={`${log.timestamp}-${idx}`}
-            className="flex gap-2 py-1 hover:bg-zinc-900/50 px-2 -mx-2 rounded"
-          >
-            <span className="text-zinc-600 shrink-0">
-              {formatTimestamp(log.timestamp)}
-            </span>
-            <span className={`shrink-0 ${AGENT_COLORS[log.agentId] || 'text-zinc-400'}`}>
-              {AGENT_EMOJI[log.agentId] || "🤖"} {log.agentId}
-            </span>
-            <span className="text-zinc-600 shrink-0">
-              [{log.role}]
-            </span>
-            <span className="text-zinc-300 break-words">
-              {formatContent(log.content)}
-            </span>
-          </div>
-        ))}
+        {logs
+          .filter(log => {
+            // Filter out toolResult messages (too noisy)
+            if (log.role === 'toolResult') return false;
+            // Filter out empty/processing messages
+            const content = formatContent(log.content);
+            if (content === '[processing...]') return false;
+            return true;
+          })
+          .map((log, idx) => {
+            const content = formatContent(log.content);
+            const isUserMessage = log.role === 'user';
+            
+            return (
+              <div 
+                key={`${log.timestamp}-${idx}`}
+                className={`flex gap-2 py-1.5 px-2 -mx-2 rounded ${
+                  isUserMessage ? 'bg-indigo-500/10' : 'hover:bg-zinc-900/50'
+                }`}
+              >
+                <span className="text-zinc-600 shrink-0 text-xs">
+                  {formatTimestamp(log.timestamp)}
+                </span>
+                <span className={`shrink-0 ${AGENT_COLORS[log.agentId] || 'text-zinc-400'}`}>
+                  {AGENT_EMOJI[log.agentId] || "🤖"} {log.agentId}
+                </span>
+                <span className="text-zinc-300 break-words flex-1">
+                  {content}
+                </span>
+              </div>
+            );
+          })}
         <div ref={logsEndRef} />
       </div>
     </div>
