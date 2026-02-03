@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (actorId) {
       activities = await convex.query(api.activities.getByActor, { actorId, limit });
     } else {
-      activities = await convex.query(api.activities.getRecent, { limit });
+      activities = await convex.query(api.activities.getAll, { limit });
     }
 
     return NextResponse.json({
