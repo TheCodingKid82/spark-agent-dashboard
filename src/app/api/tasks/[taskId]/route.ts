@@ -51,20 +51,17 @@ export async function PATCH(
       id: taskId as Id<"tasks"> 
     });
 
-    // Build update object
-    const updates: Record<string, any> = {
+    // Build update object with proper typing
+    await convex.mutation(api.tasks.update, {
       id: taskId as Id<"tasks">,
       updatedBy: updatedBy || 'agent',
-    };
-
-    if (status) updates.status = status;
-    if (assignedTo !== undefined) updates.assignedTo = assignedTo;
-    if (title) updates.title = title;
-    if (description !== undefined) updates.description = description;
-    if (priority) updates.priority = priority;
-    if (tags) updates.tags = tags;
-
-    await convex.mutation(api.tasks.update, updates);
+      ...(status && { status }),
+      ...(assignedTo !== undefined && { assignedTo }),
+      ...(title && { title }),
+      ...(description !== undefined && { description }),
+      ...(priority && { priority }),
+      ...(tags && { tags }),
+    });
 
     // Determine if we need to trigger the agent
     let triggerAction: string | null = null;
@@ -95,10 +92,20 @@ export async function PATCH(
       }).catch(err => console.error('Failed to trigger agent:', err));
     }
 
+    // Track what was updated
+    const updatedFields = [
+      status && 'status',
+      assignedTo !== undefined && 'assignedTo',
+      title && 'title',
+      description !== undefined && 'description',
+      priority && 'priority',
+      tags && 'tags',
+    ].filter(Boolean);
+
     return NextResponse.json({ 
       success: true, 
       taskId,
-      updated: Object.keys(updates).filter(k => k !== 'id' && k !== 'updatedBy'),
+      updated: updatedFields,
       triggered: triggerAction ? { agent: effectiveAssignee, action: triggerAction } : null,
     });
   } catch (error) {
