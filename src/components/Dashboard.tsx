@@ -6,7 +6,8 @@ import {
   TaskBoardKanban, 
   TaskDetailView,
   DocumentPanel, 
-  NotificationBell 
+  NotificationBell,
+  AgentLogs
 } from "@/components/mission-control";
 import { AgentChatModal } from "@/components/AgentChatModal";
 import { AgentIcon } from "@/lib/icons";
@@ -18,7 +19,8 @@ import {
   Search,
   Settings,
   MessageCircle,
-  RefreshCw
+  RefreshCw,
+  Terminal
 } from "lucide-react";
 import { calculateAgentStatuses, AgentRunStatus } from "@/lib/agent-schedule";
 import { AgentContextMenu } from "@/components/AgentContextMenu";
@@ -36,7 +38,7 @@ interface Agent {
 
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [activeTab, setActiveTab] = useState<"board" | "activity" | "documents">("board");
+  const [activeTab, setActiveTab] = useState<"board" | "activity" | "documents" | "logs">("board");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -234,6 +236,17 @@ export default function Dashboard() {
             <FileText className="w-4 h-4" />
             Documents
           </button>
+          <button
+            onClick={() => setActiveTab("logs")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border ${
+              activeTab === "logs"
+                ? "bg-indigo-600/20 text-zinc-100 border-indigo-500/20"
+                : "text-zinc-400 border-transparent hover:bg-zinc-900/60 hover:border-zinc-800/80"
+            }`}
+          >
+            <Terminal className="w-4 h-4" />
+            Logs
+          </button>
         </nav>
 
         {/* Agents List */}
@@ -402,6 +415,11 @@ export default function Dashboard() {
                 </div>
                 <DocumentPanel />
               </div>
+            </div>
+          )}
+          {activeTab === "logs" && (
+            <div className="h-full p-4">
+              <AgentLogs />
             </div>
           )}
         </div>
