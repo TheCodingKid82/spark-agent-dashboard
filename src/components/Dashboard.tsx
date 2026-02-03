@@ -57,6 +57,7 @@ export default function Dashboard() {
     enabled: boolean;
   }>>({});
   const [liveRunning, setLiveRunning] = useState<string[]>([]);
+  const [agentTasks, setAgentTasks] = useState<Record<string, { title: string; status: string } | null>>({});
 
   // Refresh schedule status every 10 seconds
   useEffect(() => {
@@ -89,6 +90,13 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Load agent tasks every 30 seconds
+  useEffect(() => {
+    loadAgentTasks();
+    const interval = setInterval(loadAgentTasks, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   async function loadLiveStatus() {
     try {
       const res = await fetch("/api/agents/live-status");
@@ -99,6 +107,26 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Failed to load live status:", error);
     }
+  }
+
+  async function loadAgentTasks() {
+    const agentIds = ["atlas", "maia", "apollo", "orpheus", "artemis", "callisto", "iris"];
+    const tasks: Record<string, { title: string; status: string } | null> = {};
+    
+    for (const agentId of agentIds) {
+      try {
+        const res = await fetch(`/api/tasks?assignedTo=${agentId}`);
+        if (res.ok) {
+          const data = await res.json();
+          // Get the first non-done task (most relevant)
+          const activeTask = data.tasks?.find((t: any) => t.status !== "done");
+          tasks[agentId] = activeTask ? { title: activeTask.title, status: activeTask.status } : null;
+        }
+      } catch {
+        tasks[agentId] = null;
+      }
+    }
+    setAgentTasks(tasks);
   }
 
   async function loadCronStatuses() {
@@ -323,9 +351,15 @@ export default function Dashboard() {
                       </div>
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm text-zinc-200 truncate">{agent.name}</p>
-                        <p className="text-xs text-zinc-500 truncate">
-                          {lastRunText ? `Ran ${lastRunText}` : agent.role}
-                        </p>
+                        {agentTasks[agent.id] ? (
+                          <p className="text-xs text-indigo-400 truncate" title={agentTasks[agent.id]?.title}>
+                            📋 {agentTasks[agent.id]?.title}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-zinc-500 truncate">
+                            {lastRunText ? `Ran ${lastRunText}` : agent.role}
+                          </p>
+                        )}
                       </div>
                       <MessageCircle className="w-4 h-4 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
